@@ -85,6 +85,13 @@ export function checkPreviewSupport(id, fileName) {
   return request({
     url: `/resources/preview-support/${id}`,
     method: "get",
+  }).then((response) => {
+    // 如果后端返回的是标准格式，直接返回data
+    if (response && response.code === 0) {
+      return response.data;
+    }
+    // 否则直接返回响应
+    return response;
   });
 }
 

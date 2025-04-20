@@ -24,15 +24,12 @@
     <div class="viewer-content" ref="viewerContainer">
       <!-- PDF查看器 -->
       <div v-if="fileType === 'pdf'" class="pdf-viewer">
-        <iframe
-          v-if="fileUrl"
-          :src="fileUrl"
-          class="pdf-frame"
+        <canvas
+          v-if="pdfDocument"
+          ref="pdfCanvas"
+          class="pdf-canvas"
           :style="{ transform: `scale(${zoom})` }"
-          @load="onFrameLoad"
-          @error="onFrameError"
-        >
-        </iframe>
+        ></canvas>
         <div v-else class="loading">
           <div class="loading-spinner"></div>
           <p>加载PDF中...</p>
@@ -76,15 +73,17 @@
         <div v-else class="loading">加载中...</div>
       </div>
 
-      <!-- Office文档查看器 (通过微软Office Online或Google Docs) -->
+      <!-- Office文档查看器 -->
       <div v-else-if="isOffice" class="office-viewer">
-        <iframe
-          v-if="officeViewerUrl"
-          :src="officeViewerUrl"
-          class="office-frame"
-        >
-        </iframe>
-        <div v-else class="loading">加载中...</div>
+        <div
+          v-if="officeContent"
+          ref="officeContainer"
+          class="office-container"
+        ></div>
+        <div v-else class="loading">
+          <div class="loading-spinner"></div>
+          <p>加载文档中...</p>
+        </div>
       </div>
 
       <!-- 其他文件类型 -->
@@ -129,6 +128,12 @@
 
 <script>
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import * as pdfjsLib from "pdfjs-dist";
+import "pdfjs-dist/web/pdf_viewer.css";
+import { renderAsync } from "docx-preview";
+
+// 设置PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default {
   name: "FileViewer",
@@ -161,6 +166,11 @@ export default {
     const viewerContainer = ref(null);
     const loadError = ref(false);
     const loadErrorMessage = ref("加载文件失败");
+    const pdfDocument = ref(null);
+    const pdfCanvas = ref(null);
+    const pdfPage = ref(null);
+    const officeContent = ref(null);
+    const officeContainer = ref(null);
 
     // 文件类型处理
     const fileExtension = computed(() => {
@@ -214,13 +224,12 @@ export default {
     const officeViewerUrl = computed(() => {
       if (!props.fileUrl || !isOffice.value) return "";
 
-      // 使用Microsoft Office Online Viewer
-      // 注意：实际使用时需要有一个公开可访问的URL
+      // 使用Google Docs Viewer作为主要预览方式
       const encodedUrl = encodeURIComponent(props.fileUrl);
-      return `https://view.officeapps.live.com/op/view.aspx?src=${encodedUrl}`;
+      return `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true&hl=zh-CN`;
 
-      // 也可以考虑使用Google Docs Viewer
-      // return `https://docs.google.com/viewer?url=${encodedUrl}&embedded=true`;
+      // 备选方案：Microsoft Office Online Viewer
+      // return `https://view.officeapps.live.com/op/view.aspx?src=${encodedUrl}`;
     });
 
     // 加载文本内容
@@ -290,34 +299,14 @@ export default {
 
     // 处理iframe加载事件
     const onFrameLoad = (event) => {
-      // 检查是否加载了内容
-      try {
-        const iframe = event.target;
-        const iframeDoc =
-          iframe.contentDocument || iframe.contentWindow.document;
-
-        // 如果iframe内容为空或只是一个简单的错误页，认为是加载失败
-        if (
-          iframeDoc.body.innerHTML.trim() === "" ||
-          iframeDoc.body.innerHTML.includes("404") ||
-          iframeDoc.body.innerHTML.includes("error")
-        ) {
-          loadError.value = true;
-          loadErrorMessage.value =
-            "无法加载文件内容，文件可能不存在或格式不支持";
-        } else {
-          loadError.value = false;
-        }
-      } catch (e) {
-        // 可能是跨域问题
-        console.error("检查iframe内容失败:", e);
-      }
+      // 移除跨域检查，因为Google Docs Viewer不允许跨域访问
+      loadError.value = false;
     };
 
     // 处理iframe加载错误
     const onFrameError = () => {
       loadError.value = true;
-      loadErrorMessage.value = "加载文件失败，请稍后重试";
+      loadErrorMessage.value = "加载文件失败，请稍后重试或下载后查看";
     };
 
     // 重试加载
@@ -347,11 +336,108 @@ export default {
       }
     };
 
+    // 加载PDF
+    const loadPDF = async () => {
+      if (!props.fileUrl || props.fileType !== "pdf") return;
+
+      try {
+        // 加载PDF文档
+        const loadingTask = pdfjsLib.getDocument({
+          url: props.fileUrl,
+          cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/cmaps/",
+          cMapPacked: true,
+        });
+        pdfDocument.value = await loadingTask.promise;
+
+        // 加载第一页
+        pdfPage.value = await pdfDocument.value.getPage(1);
+
+        // 渲染PDF页面
+        const canvas = pdfCanvas.value;
+        const context = canvas.getContext("2d");
+        const viewport = pdfPage.value.getViewport({ scale: 1.5 });
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport,
+        };
+
+        await pdfPage.value.render(renderContext).promise;
+        loadError.value = false;
+      } catch (error) {
+        console.error("加载PDF失败:", error);
+        loadError.value = true;
+        loadErrorMessage.value = "加载PDF失败，请下载后查看";
+      }
+    };
+
+    // 加载Office文档
+    const loadOfficeDocument = async () => {
+      if (!props.fileUrl || !isOffice.value) return;
+
+      try {
+        const response = await fetch(props.fileUrl);
+        const arrayBuffer = await response.arrayBuffer();
+
+        if (officeContainer.value) {
+          await renderAsync(arrayBuffer, officeContainer.value);
+          loadError.value = false;
+        }
+      } catch (error) {
+        console.error("加载Office文档失败:", error);
+        loadError.value = true;
+        loadErrorMessage.value = "加载文档失败，请下载后查看";
+      }
+    };
+
+    // 监听文件URL变化
+    watch(
+      () => props.fileUrl,
+      () => {
+        if (props.fileType === "pdf") {
+          loadPDF();
+        }
+        if (isOffice.value) {
+          loadOfficeDocument();
+        }
+      }
+    );
+
+    // 监听缩放变化
+    watch(zoom, () => {
+      if (pdfPage.value && pdfCanvas.value) {
+        const canvas = pdfCanvas.value;
+        const context = canvas.getContext("2d");
+        const viewport = pdfPage.value.getViewport({ scale: 1.5 * zoom.value });
+
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport,
+        };
+
+        pdfPage.value.render(renderContext).promise;
+      }
+    });
+
     onMounted(() => {
       document.addEventListener("keydown", handleKeyDown);
 
       if (isText.value) {
         loadTextContent();
+      }
+
+      if (props.fileType === "pdf") {
+        loadPDF();
+      }
+
+      if (isOffice.value) {
+        loadOfficeDocument();
       }
     });
 
@@ -383,6 +469,11 @@ export default {
       onFrameLoad,
       onFrameError,
       retry,
+      pdfDocument,
+      pdfCanvas,
+      pdfPage,
+      officeContent,
+      officeContainer,
     };
   },
 };
@@ -652,5 +743,41 @@ export default {
   height: auto;
   opacity: 0;
   transition: opacity 0.3s ease;
+}
+
+.pdf-object {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background-color: white;
+}
+
+.pdf-object p {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+}
+
+.pdf-object a {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.pdf-object a:hover {
+  text-decoration: underline;
+}
+
+.pdf-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.office-container {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: white;
+  padding: 20px;
 }
 </style>

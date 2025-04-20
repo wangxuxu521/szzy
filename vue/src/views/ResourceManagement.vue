@@ -361,11 +361,25 @@
     <!-- 文件预览弹窗 -->
     <div v-if="showFilePreview" class="modal-overlay" @click="closeFilePreview">
       <FileViewer
-        :resourceId="previewResource.id || previewResource.resourceId"
-        :fileName="previewResource.filename || previewResource.file_name"
+        :resourceId="
+          previewResource.id ||
+          previewResource.resourceId ||
+          previewResource.resource_id
+        "
+        :fileName="
+          previewResource.filename ||
+          previewResource.file_name ||
+          previewResource.fileName ||
+          previewResource.file
+        "
         :fileUrl="previewUrl"
         :fileType="
-          getFileType(previewResource.filename || previewResource.file_name)
+          getFileType(
+            previewResource.filename ||
+              previewResource.file_name ||
+              previewResource.fileName ||
+              previewResource.file
+          )
         "
         @close="closeFilePreview"
         @click.stop
@@ -909,30 +923,32 @@ export default {
     const showPreview = async (resource) => {
       previewResource.value = resource;
 
-      const fileName = resource.filename || resource.file_name;
-      const id = resource.id || resource.resourceId;
+      // 尝试多种可能的文件名字段
+      const fileName =
+        resource.filename ||
+        resource.file_name ||
+        resource.fileName ||
+        resource.file;
+      const id = resource.id || resource.resourceId || resource.resource_id;
+
+      if (!fileName) {
+        console.error("资源对象:", resource);
+        showNotification("无法获取文件名，请检查资源信息", "error");
+        return;
+      }
+
+      if (!id) {
+        console.error("资源对象:", resource);
+        showNotification("无法获取资源ID，请检查资源信息", "error");
+        return;
+      }
 
       try {
         // 检查文件是否支持预览
         const response = await checkPreviewSupport(id, fileName);
         console.log("预览支持检查响应:", response);
 
-        let supported = false;
-        let fileType = "other";
-
-        if (response && response.code === 0) {
-          // 成功响应
-          const data = response.data;
-          if (data) {
-            // 直接使用data本身，因为后端已经配置了getter/setter
-            supported = !!data.supported;
-            fileType = data.fileType || "other";
-
-            console.log("解析后的预览支持信息:", { supported, fileType });
-          }
-        }
-
-        if (supported) {
+        if (response && response.supported) {
           // 获取预览URL
           previewUrl.value = getResourcePreviewUrl(id);
           showFilePreview.value = true;
