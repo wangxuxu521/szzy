@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.ResourceMapper">
+
+    <resultMap id="ResourceResultMap" type="com.example.springboot.entity.Resource">
+        <id property="resourceId" column="resource_id"/>
+        <result property="title" column="title"/>
+        <result property="description" column="description"/>
+        <result property="filePath" column="file_path"/>
+        <result property="fileName" column="file_name"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="format" column="format"/>
+        <result property="uploadTime" column="upload_time"/>
+        <result property="downloadCount" column="download_count"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="rating" column="rating"/>
+        <result property="uploaderId" column="uploader_id"/>
+        <result property="reviewStatus" column="review_status"/>
+        <result property="type" column="type"/>
+        <result property="tags" column="tags"/>
+    </resultMap>
+
+    <select id="findById" parameterType="int" resultMap="ResourceResultMap">
+        SELECT * FROM resource WHERE resource_id = #{resourceId}
+    </select>
+
+    <select id="findAll" resultMap="ResourceResultMap">
+        SELECT * FROM resource
+    </select>
+
+    <select id="searchResources" resultMap="ResourceResultMap">
+        SELECT * FROM resource
+        <where>
+            <if test="type != null and type != ''">
+                AND type = #{type}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    title LIKE CONCAT('%', #{keyword}, '%') OR
+                    description LIKE CONCAT('%', #{keyword}, '%') OR
+                    tags LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+        </where>
+    </select>
+
+    <select id="findHotResources" resultMap="ResourceResultMap">
+        SELECT * FROM resource
+        ORDER BY download_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <insert id="insert" parameterType="com.example.springboot.entity.Resource" useGeneratedKeys="true" keyProperty="resourceId">
+        INSERT INTO resource(
+            title, description, file_path, file_name, file_size, format, 
+            upload_time, download_count, view_count, rating, uploader_id, 
+            review_status, type, tags
+        )
+        VALUES(
+            #{title}, #{description}, #{filePath}, #{fileName}, #{fileSize}, #{format}, 
+            #{uploadTime}, #{downloadCount}, #{viewCount}, #{rating}, #{uploaderId}, 
+            #{reviewStatus}, #{type}, #{tags}
+        )
+    </insert>
+
+    <update id="update" parameterType="com.example.springboot.entity.Resource">
+        UPDATE resource 
+        SET title=#{title}, description=#{description}, file_path=#{filePath}, 
+            file_name=#{fileName}, file_size=#{fileSize}, format=#{format}, 
+            download_count=#{downloadCount}, view_count=#{viewCount}, rating=#{rating}, 
+            review_status=#{reviewStatus}, type=#{type}, tags=#{tags}
+        WHERE resource_id=#{resourceId}
+    </update>
+
+    <delete id="delete" parameterType="int">
+        DELETE FROM resource WHERE resource_id=#{resourceId}
+    </delete>
+
+</mapper> 

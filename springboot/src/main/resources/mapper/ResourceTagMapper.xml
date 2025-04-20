@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.ResourceTagMapper">
+
+    <resultMap id="ResourceTagResultMap" type="com.example.springboot.entity.ResourceTag">
+        <id property="id" column="id"/>
+        <result property="resourceId" column="resource_id"/>
+        <result property="tagId" column="tag_id"/>
+    </resultMap>
+
+    <select id="findById" parameterType="int" resultMap="ResourceTagResultMap">
+        SELECT * FROM resource_tag WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultMap="ResourceTagResultMap">
+        SELECT * FROM resource_tag
+    </select>
+
+    <select id="findByResourceId" parameterType="int" resultMap="ResourceTagResultMap">
+        SELECT * FROM resource_tag WHERE resource_id = #{resourceId}
+    </select>
+
+    <select id="findByTagId" parameterType="int" resultMap="ResourceTagResultMap">
+        SELECT * FROM resource_tag WHERE tag_id = #{tagId}
+    </select>
+
+    <insert id="insert" parameterType="com.example.springboot.entity.ResourceTag" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO resource_tag(resource_id, tag_id)
+        VALUES(#{resourceId}, #{tagId})
+    </insert>
+
+    <update id="update" parameterType="com.example.springboot.entity.ResourceTag">
+        UPDATE resource_tag 
+        SET resource_id=#{resourceId}, tag_id=#{tagId}
+        WHERE id=#{id}
+    </update>
+
+    <delete id="delete" parameterType="int">
+        DELETE FROM resource_tag WHERE id=#{id}
+    </delete>
+
+</mapper> 

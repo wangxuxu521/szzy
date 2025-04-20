@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.ReviewMapper">
+
+    <resultMap id="ReviewResultMap" type="com.example.springboot.entity.Review">
+        <id property="reviewId" column="review_id"/>
+        <result property="resourceId" column="resource_id"/>
+        <result property="reviewerId" column="reviewer_id"/>
+        <result property="reviewTime" column="review_time"/>
+        <result property="reviewOpinion" column="review_opinion"/>
+        <result property="reviewResult" column="review_result"/>
+    </resultMap>
+
+    <select id="findById" parameterType="int" resultMap="ReviewResultMap">
+        SELECT * FROM review WHERE review_id = #{reviewId}
+    </select>
+
+    <select id="findAll" resultMap="ReviewResultMap">
+        SELECT * FROM review
+    </select>
+
+    <select id="findByResourceId" parameterType="int" resultMap="ReviewResultMap">
+        SELECT * FROM review WHERE resource_id = #{resourceId}
+    </select>
+
+    <select id="findByReviewerId" parameterType="int" resultMap="ReviewResultMap">
+        SELECT * FROM review WHERE reviewer_id = #{reviewerId}
+    </select>
+
+    <insert id="insert" parameterType="com.example.springboot.entity.Review" useGeneratedKeys="true" keyProperty="reviewId">
+        INSERT INTO review(resource_id, reviewer_id, review_time, review_opinion, review_result)
+        VALUES(#{resourceId}, #{reviewerId}, #{reviewTime}, #{reviewOpinion}, #{reviewResult})
+    </insert>
+
+    <update id="update" parameterType="com.example.springboot.entity.Review">
+        UPDATE review 
+        SET resource_id=#{resourceId}, reviewer_id=#{reviewerId}, 
+            review_time=#{reviewTime}, review_opinion=#{reviewOpinion}, review_result=#{reviewResult}
+        WHERE review_id=#{reviewId}
+    </update>
+
+    <delete id="delete" parameterType="int">
+        DELETE FROM review WHERE review_id=#{reviewId}
+    </delete>
+
+</mapper> 

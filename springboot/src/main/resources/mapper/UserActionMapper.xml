@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.UserActionMapper">
+
+    <resultMap id="UserActionResultMap" type="com.example.springboot.entity.UserAction">
+        <id property="actionId" column="action_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="resourceId" column="resource_id"/>
+        <result property="actionType" column="action_type"/>
+        <result property="actionTime" column="action_time"/>
+        <result property="commentContent" column="comment_content"/>
+    </resultMap>
+
+    <select id="findById" parameterType="int" resultMap="UserActionResultMap">
+        SELECT * FROM user_action WHERE action_id = #{actionId}
+    </select>
+
+    <select id="findAll" resultMap="UserActionResultMap">
+        SELECT * FROM user_action
+    </select>
+
+    <select id="findByUserId" parameterType="int" resultMap="UserActionResultMap">
+        SELECT * FROM user_action WHERE user_id = #{userId}
+    </select>
+
+    <select id="findByResourceId" parameterType="int" resultMap="UserActionResultMap">
+        SELECT * FROM user_action WHERE resource_id = #{resourceId}
+    </select>
+
+    <select id="findByActionType" parameterType="string" resultMap="UserActionResultMap">
+        SELECT * FROM user_action WHERE action_type = #{actionType}
+    </select>
+
+    <insert id="insert" parameterType="com.example.springboot.entity.UserAction" useGeneratedKeys="true" keyProperty="actionId">
+        INSERT INTO user_action(user_id, resource_id, action_type, action_time, comment_content)
+        VALUES(#{userId}, #{resourceId}, #{actionType}, #{actionTime}, #{commentContent})
+    </insert>
+
+    <update id="update" parameterType="com.example.springboot.entity.UserAction">
+        UPDATE user_action 
+        SET user_id=#{userId}, resource_id=#{resourceId}, action_type=#{actionType}, 
+            action_time=#{actionTime}, comment_content=#{commentContent}
+        WHERE action_id=#{actionId}
+    </update>
+
+    <delete id="delete" parameterType="int">
+        DELETE FROM user_action WHERE action_id=#{actionId}
+    </delete>
+
+</mapper> 
