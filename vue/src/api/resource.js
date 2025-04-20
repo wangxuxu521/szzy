@@ -72,3 +72,42 @@ export function downloadResource(id) {
     responseType: "blob",
   });
 }
+
+// 获取资源预览URL
+export function getResourcePreviewUrl(id) {
+  // 使用后端提供的预览API
+  return `/api/resources/preview/${id}`;
+}
+
+// 检查资源是否支持在线预览
+export function checkPreviewSupport(id, fileName) {
+  // 使用后端提供的预览支持检查API
+  return request({
+    url: `/resources/preview-support/${id}`,
+    method: "get",
+  });
+}
+
+// 根据扩展名获取文件类型 - 仅作为备用方案
+function getFileTypeFromExtension(extension) {
+  if (["pdf"].includes(extension)) {
+    return "pdf";
+  } else if (["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(extension)) {
+    return "image";
+  } else if (
+    ["txt", "log", "md", "json", "xml", "html", "css", "js"].includes(extension)
+  ) {
+    return "text";
+  } else if (
+    ["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(extension)
+  ) {
+    return "office";
+  } else if (
+    ["mp4", "webm", "ogg", "avi", "mov", "wmv", "flv", "mkv"].includes(
+      extension
+    )
+  ) {
+    return "video";
+  }
+  return "other";
+}

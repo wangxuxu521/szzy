@@ -78,6 +78,13 @@
           </div>
           <div class="card-actions">
             <button
+              class="action-btn preview-btn"
+              @click.stop="showPreview(resource)"
+              title="预览资源"
+            >
+              预览
+            </button>
+            <button
               class="action-btn download-btn"
               @click.stop="downloadResource(resource)"
               title="下载资源"
@@ -142,11 +149,33 @@
             </div>
             <div class="form-group">
               <label>标签</label>
-              <input
-                type="text"
-                v-model="resourceForm.tags"
-                placeholder="用逗号分隔多个标签"
-              />
+              <div class="tag-select-container">
+                <el-select
+                  v-model="selectedTags"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  placeholder="请选择或输入标签"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="tag in availableTags"
+                    :key="tag.tagId"
+                    :label="tag.tagName"
+                    :value="tag.tagName"
+                  >
+                    <span>{{ tag.tagName }}</span>
+                    <el-tag
+                      size="small"
+                      class="tag-type-indicator"
+                      :type="getTagTypeClass(tag.tagType)"
+                    >
+                      {{ getTagTypeLabel(tag.tagType) }}
+                    </el-tag>
+                  </el-option>
+                </el-select>
+              </div>
             </div>
             <div
               class="form-group"
@@ -261,10 +290,16 @@
             <div class="detail-label">文件</div>
             <div class="detail-value">
               <button
+                class="preview-btn-large"
+                @click="showPreview(selectedResource)"
+              >
+                在线预览
+              </button>
+              <button
                 class="download-btn-large"
                 @click="downloadResource(selectedResource)"
               >
-                下载 {{ selectedResource.filename }}
+                下载文件
               </button>
             </div>
           </div>
@@ -322,12 +357,27 @@
       <span>{{ notification.message }}</span>
       <button class="close-btn" @click="notification.show = false">×</button>
     </div>
+
+    <!-- 文件预览弹窗 -->
+    <div v-if="showFilePreview" class="modal-overlay" @click="closeFilePreview">
+      <FileViewer
+        :resourceId="previewResource.id || previewResource.resourceId"
+        :fileName="previewResource.filename || previewResource.file_name"
+        :fileUrl="previewUrl"
+        :fileType="
+          getFileType(previewResource.filename || previewResource.file_name)
+        "
+        @close="closeFilePreview"
+        @click.stop
+      />
+    </div>
   </div>
 </template>
 
 <script>
 import { ref, computed, reactive, onMounted, watch } from "vue";
 import { useStore } from "vuex";
+import FileViewer from "@/components/FileViewer.vue";
 import {
   getResourceList,
   getResourceDetail,
@@ -335,10 +385,16 @@ import {
   updateResource,
   deleteResource as apiDeleteResource,
   searchResources,
+  getResourcePreviewUrl,
+  checkPreviewSupport,
 } from "@/api/resource";
+import { getTagList } from "@/api/tag";
 
 export default {
   name: "ResourceManagement",
+  components: {
+    FileViewer,
+  },
   setup() {
     const store = useStore();
 
@@ -405,6 +461,94 @@ export default {
       filename: "",
       replaceFile: false,
     });
+
+    // 标签数据
+    const availableTags = ref([]);
+    const selectedTags = ref([]);
+
+    // 预览状态
+    const showFilePreview = ref(false);
+    const previewResource = ref({});
+    const previewUrl = ref("");
+
+    // 获取标签列表
+    const fetchTags = async () => {
+      try {
+        const response = await getTagList();
+        console.log("获取标签列表响应:", response);
+
+        if (response && typeof response === "object") {
+          if (Array.isArray(response)) {
+            availableTags.value = response;
+          } else if ("data" in response) {
+            availableTags.value = response.data || [];
+          } else if ("tags" in response) {
+            availableTags.value = response.tags || [];
+          } else {
+            // 尝试查找任何看起来像标签数组的字段
+            const possibleArrayField = Object.keys(response).find(
+              (key) =>
+                Array.isArray(response[key]) &&
+                response[key].length > 0 &&
+                typeof response[key][0] === "object" &&
+                ("tagName" in response[key][0] ||
+                  "tag_name" in response[key][0])
+            );
+
+            if (possibleArrayField) {
+              availableTags.value = response[possibleArrayField];
+            } else {
+              availableTags.value = [];
+              console.warn("未识别的标签响应格式:", response);
+            }
+          }
+        } else {
+          availableTags.value = [];
+        }
+
+        // 如果没有获取到标签数据，使用测试数据
+        if (availableTags.value.length === 0) {
+          availableTags.value = [
+            { tagId: 1, tagName: "爱国主义", tagType: "theme" },
+            { tagId: 2, tagName: "工科", tagType: "subject" },
+            { tagId: 3, tagName: "PDF", tagType: "format" },
+            { tagId: 4, tagName: "团队协作", tagType: "theme" },
+            { tagId: 5, tagName: "文科", tagType: "subject" },
+            { tagId: 6, tagName: "Word", tagType: "format" },
+          ];
+        }
+      } catch (error) {
+        console.error("获取标签列表失败", error);
+        // 使用测试数据
+        availableTags.value = [
+          { tagId: 1, tagName: "爱国主义", tagType: "theme" },
+          { tagId: 2, tagName: "工科", tagType: "subject" },
+          { tagId: 3, tagName: "PDF", tagType: "format" },
+          { tagId: 4, tagName: "团队协作", tagType: "theme" },
+          { tagId: 5, tagName: "文科", tagType: "subject" },
+          { tagId: 6, tagName: "Word", tagType: "format" },
+        ];
+      }
+    };
+
+    // 标签类型显示
+    const getTagTypeClass = (type) => {
+      const typeMap = {
+        theme: "success",
+        subject: "primary",
+        format: "warning",
+      };
+      return typeMap[type] || "info";
+    };
+
+    const getTagTypeLabel = (type) => {
+      const typeMap = {
+        theme: "主题",
+        subject: "学科",
+        format: "格式",
+      };
+      return typeMap[type] || type;
+    };
 
     // 过滤后的资源列表
     const filteredResources = computed(() => {
@@ -579,6 +723,9 @@ export default {
       resourceForm.filename = resource.filename || "";
       resourceForm.replaceFile = false;
 
+      // 设置标签
+      selectedTags.value = resource.tags || [];
+
       showResourceDetail.value = false;
       showEditResourceModal.value = true;
     };
@@ -621,6 +768,7 @@ export default {
 
     // 提交资源表单
     const submitResourceForm = async () => {
+      if (uploading.value) return;
       uploading.value = true;
 
       try {
@@ -629,10 +777,12 @@ export default {
         formData.append("type", resourceForm.type);
         formData.append("description", resourceForm.description);
 
-        const tagsArray = resourceForm.tags
-          ? resourceForm.tags.split(",").map((tag) => tag.trim())
-          : [];
-        formData.append("tags", JSON.stringify(tagsArray));
+        // 使用selectedTags而不是resourceForm.tags
+        formData.append("tags", JSON.stringify(selectedTags.value));
+
+        if (resourceForm.file) {
+          formData.append("file", resourceForm.file);
+        }
 
         if (showEditResourceModal.value) {
           // 编辑现有资源
@@ -653,7 +803,7 @@ export default {
               title: resourceForm.title,
               type: resourceForm.type,
               description: resourceForm.description,
-              tags: tagsArray,
+              tags: selectedTags.value,
             };
           }
 
@@ -712,6 +862,9 @@ export default {
       resourceForm.file = null;
       resourceForm.filename = "";
       resourceForm.replaceFile = false;
+
+      // 重置标签
+      selectedTags.value = [];
     };
 
     // 监听搜索参数变化
@@ -719,9 +872,97 @@ export default {
       currentPage.value = 1;
     });
 
-    // 组件挂载时加载资源
+    // 获取文件类型
+    const getFileType = (filename) => {
+      if (!filename) return "";
+
+      const extension = filename.split(".").pop().toLowerCase();
+
+      if (["pdf"].includes(extension)) {
+        return "pdf";
+      } else if (
+        ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(extension)
+      ) {
+        return "image";
+      } else if (
+        ["txt", "log", "md", "json", "xml", "html", "css", "js"].includes(
+          extension
+        )
+      ) {
+        return "text";
+      } else if (
+        ["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(extension)
+      ) {
+        return "office";
+      } else if (
+        ["mp4", "webm", "ogg", "avi", "mov", "wmv", "flv", "mkv"].includes(
+          extension
+        )
+      ) {
+        return "video";
+      }
+
+      return "other";
+    };
+
+    // 预览资源
+    const showPreview = async (resource) => {
+      previewResource.value = resource;
+
+      const fileName = resource.filename || resource.file_name;
+      const id = resource.id || resource.resourceId;
+
+      try {
+        // 检查文件是否支持预览
+        const response = await checkPreviewSupport(id, fileName);
+        console.log("预览支持检查响应:", response);
+
+        let supported = false;
+        let fileType = "other";
+
+        if (response && response.code === 0) {
+          // 成功响应
+          const data = response.data;
+          if (data) {
+            // 直接使用data本身，因为后端已经配置了getter/setter
+            supported = !!data.supported;
+            fileType = data.fileType || "other";
+
+            console.log("解析后的预览支持信息:", { supported, fileType });
+          }
+        }
+
+        if (supported) {
+          // 获取预览URL
+          previewUrl.value = getResourcePreviewUrl(id);
+          showFilePreview.value = true;
+        } else {
+          // 不支持预览的文件类型
+          showNotification(`不支持预览该文件类型：${fileName}`, "error");
+
+          // 提示用户下载
+          setTimeout(() => {
+            if (confirm(`文件 ${fileName} 不支持在线预览，是否下载查看？`)) {
+              downloadResource(resource);
+            }
+          }, 500);
+        }
+      } catch (error) {
+        console.error("检查预览支持失败:", error);
+        showNotification("检查预览支持失败，请尝试下载文件", "error");
+      }
+    };
+
+    // 关闭文件预览
+    const closeFilePreview = () => {
+      showFilePreview.value = false;
+      previewUrl.value = "";
+    };
+
+    // 组件挂载时加载资源和标签列表
     onMounted(() => {
       loadResources();
+      fetchTags();
     });
 
     return {
@@ -762,6 +1003,16 @@ export default {
       submitResourceForm,
       closeModal,
       notification,
+      availableTags,
+      selectedTags,
+      getTagTypeClass,
+      getTagTypeLabel,
+      showFilePreview,
+      previewResource,
+      previewUrl,
+      getFileType,
+      showPreview,
+      closeFilePreview,
     };
   },
 };
@@ -998,6 +1249,22 @@ export default {
   cursor: pointer;
   font-size: 0.9rem;
   text-align: center;
+}
+
+.preview-btn {
+  background-color: #52c41a;
+  color: white;
+}
+
+.preview-btn-large {
+  padding: 0.5rem 1rem;
+  background-color: #52c41a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  margin-right: 10px;
 }
 
 .download-btn {
@@ -1287,5 +1554,51 @@ export default {
   .modal {
     width: 95%;
   }
+}
+
+/* 标签相关样式 */
+.tag-select-container {
+  width: 100%;
+}
+
+.tag-type-indicator {
+  margin-left: 8px;
+  font-size: 11px;
+  height: 20px;
+  line-height: 18px;
+}
+
+:deep(.el-select .el-select__tags .el-tag) {
+  background-color: #e6f7ff;
+  border-color: #91d5ff;
+  color: #1890ff;
+  margin: 2px 4px 2px 0;
+}
+
+:deep(.el-select) {
+  width: 100%;
+}
+
+:deep(.el-select .el-input__wrapper) {
+  background-color: #fff;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  padding: 0 11px;
+  width: 100%;
+}
+
+:deep(.el-select .el-input__inner) {
+  height: 36px;
+  line-height: 36px;
+}
+
+:deep(.el-select .el-tag__close) {
+  color: #1890ff;
+  background-color: transparent;
+}
+
+:deep(.el-select .el-tag__close:hover) {
+  background-color: #1890ff;
+  color: #fff;
 }
 </style>

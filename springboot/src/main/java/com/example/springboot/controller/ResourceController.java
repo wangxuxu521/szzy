@@ -282,4 +282,218 @@ public class ResourceController {
             return ResponseEntity.badRequest().build();
         }
     }
+    
+    // 检查资源是否支持预览
+    @GetMapping("/preview-support/{id}")
+    public Result checkPreviewSupport(@PathVariable Integer id) {
+        try {
+            Resource resource = resourceService.findById(id);
+            if (resource == null) {
+                return Result.error("资源不存在");
+            }
+            
+            String fileName = resource.getFileName();
+            String fileExtension = "";
+            if (fileName != null && fileName.contains(".")) {
+                fileExtension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+            }
+            
+            // 检查文件类型是否支持预览
+            boolean supported = isSupportedForPreview(fileExtension);
+            String fileType = getFileTypeFromExtension(fileExtension);
+            
+            return Result.success(new PreviewSupportInfo(supported, fileType));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("检查预览支持失败: " + e.getMessage());
+        }
+    }
+    
+    // 辅助类：预览支持信息
+    private static class PreviewSupportInfo {
+        private boolean supported;
+        private String fileType;
+        
+        public PreviewSupportInfo(boolean supported, String fileType) {
+            this.supported = supported;
+            this.fileType = fileType;
+        }
+        
+        // 确保字段可以被正确序列化
+        public boolean isSupported() {
+            return supported;
+        }
+        
+        public void setSupported(boolean supported) {
+            this.supported = supported;
+        }
+        
+        public String getFileType() {
+            return fileType;
+        }
+        
+        public void setFileType(String fileType) {
+            this.fileType = fileType;
+        }
+    }
+    
+    // 判断文件类型是否支持预览
+    private boolean isSupportedForPreview(String fileExtension) {
+        return isPdfFile(fileExtension) || isImageFile(fileExtension) || 
+               isTextFile(fileExtension) || isOfficeFile(fileExtension) ||
+               isVideoFile(fileExtension);
+    }
+    
+    // 获取文件类型分类
+    private String getFileTypeFromExtension(String extension) {
+        if (isPdfFile(extension)) {
+            return "pdf";
+        } else if (isImageFile(extension)) {
+            return "image";
+        } else if (isTextFile(extension)) {
+            return "text";
+        } else if (isOfficeFile(extension)) {
+            return "office";
+        } else if (isVideoFile(extension)) {
+            return "video";
+        }
+        return "other";
+    }
+    
+    // 判断是否为PDF文件
+    private boolean isPdfFile(String fileExtension) {
+        return "pdf".equals(fileExtension);
+    }
+    
+    // 判断是否为图片文件
+    private boolean isImageFile(String fileExtension) {
+        return fileExtension != null && 
+               (fileExtension.equals("jpg") || fileExtension.equals("jpeg") || 
+                fileExtension.equals("png") || fileExtension.equals("gif") || 
+                fileExtension.equals("bmp") || fileExtension.equals("webp"));
+    }
+    
+    // 判断是否为文本文件
+    private boolean isTextFile(String fileExtension) {
+        return fileExtension != null && 
+               (fileExtension.equals("txt") || fileExtension.equals("log") || 
+                fileExtension.equals("json") || fileExtension.equals("xml") || 
+                fileExtension.equals("html") || fileExtension.equals("css") || 
+                fileExtension.equals("js") || fileExtension.equals("md"));
+    }
+    
+    // 判断是否为Office文件
+    private boolean isOfficeFile(String fileExtension) {
+        return fileExtension != null && 
+               (fileExtension.equals("doc") || fileExtension.equals("docx") || 
+                fileExtension.equals("xls") || fileExtension.equals("xlsx") || 
+                fileExtension.equals("ppt") || fileExtension.equals("pptx"));
+    }
+    
+    // 判断是否为视频文件
+    private boolean isVideoFile(String fileExtension) {
+        return fileExtension != null && 
+               (fileExtension.equals("mp4") || fileExtension.equals("webm") || 
+                fileExtension.equals("ogg") || fileExtension.equals("avi") || 
+                fileExtension.equals("mov") || fileExtension.equals("wmv") ||
+                fileExtension.equals("flv") || fileExtension.equals("mkv"));
+    }
+    
+    // 获取图片文件的Content-Type
+    private String getImageContentType(String fileExtension) {
+        switch (fileExtension) {
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            case "bmp":
+                return "image/bmp";
+            case "webp":
+                return "image/webp";
+            default:
+                return "image/jpeg";
+        }
+    }
+    
+    // 获取视频文件的Content-Type
+    private String getVideoContentType(String fileExtension) {
+        switch (fileExtension) {
+            case "mp4":
+                return "video/mp4";
+            case "webm":
+                return "video/webm";
+            case "ogg":
+                return "video/ogg";
+            case "avi":
+                return "video/x-msvideo";
+            case "mov":
+                return "video/quicktime";
+            case "wmv":
+                return "video/x-ms-wmv";
+            case "flv":
+                return "video/x-flv";
+            case "mkv":
+                return "video/x-matroska";
+            default:
+                return "video/mp4";
+        }
+    }
+
+    // 资源预览
+    @GetMapping("/preview/{id}")
+    public ResponseEntity<?> previewResource(@PathVariable Integer id) {
+        try {
+            Resource resource = resourceService.findById(id);
+            if (resource == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // 增加浏览次数
+            resourceService.increaseViewCount(id);
+            
+            // 获取文件
+            File file = new File(resource.getFilePath());
+            if (!file.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // 获取文件扩展名
+            String fileName = resource.getFileName();
+            String fileExtension = "";
+            if (fileName != null && fileName.contains(".")) {
+                fileExtension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+            }
+            
+            // 设置响应头
+            HttpHeaders headers = new HttpHeaders();
+            
+            // 根据文件类型设置不同的Content-Type
+            if (isPdfFile(fileExtension)) {
+                headers.add(HttpHeaders.CONTENT_TYPE, "application/pdf");
+            } else if (isImageFile(fileExtension)) {
+                headers.add(HttpHeaders.CONTENT_TYPE, getImageContentType(fileExtension));
+            } else if (isTextFile(fileExtension)) {
+                headers.add(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8");
+            } else if (isVideoFile(fileExtension)) {
+                headers.add(HttpHeaders.CONTENT_TYPE, getVideoContentType(fileExtension));
+            } else {
+                // 对于不支持直接预览的文件类型，使用下载方式处理
+                headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFileName() + "\"");
+                headers.add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_OCTET_STREAM_VALUE);
+            }
+            
+            headers.add(HttpHeaders.CONTENT_LENGTH, String.valueOf(file.length()));
+            
+            // 返回文件
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(new FileSystemResource(file));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().build();
+        }
+    }
 } 
