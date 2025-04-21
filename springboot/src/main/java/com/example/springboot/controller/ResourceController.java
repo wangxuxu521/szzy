@@ -353,7 +353,7 @@ public class ResourceController {
     private boolean isSupportedForPreview(String fileExtension) {
         return isPdfFile(fileExtension) || isImageFile(fileExtension) || 
                isTextFile(fileExtension) || isOfficeFile(fileExtension) ||
-               isVideoFile(fileExtension);
+               isVideoFile(fileExtension) || isAudioFile(fileExtension);
     }
     
     // 获取文件类型分类
@@ -368,6 +368,8 @@ public class ResourceController {
             return "office";
         } else if (isVideoFile(extension)) {
             return "video";
+        } else if (isAudioFile(extension)) {
+            return "audio";
         }
         return "other";
     }
@@ -409,6 +411,16 @@ public class ResourceController {
                 fileExtension.equals("ogg") || fileExtension.equals("avi") || 
                 fileExtension.equals("mov") || fileExtension.equals("wmv") ||
                 fileExtension.equals("flv") || fileExtension.equals("mkv"));
+    }
+    
+    // 判断是否为音频文件
+    private boolean isAudioFile(String fileExtension) {
+        if (fileExtension == null) return false;
+        return fileExtension.equalsIgnoreCase("mp3") || 
+               fileExtension.equalsIgnoreCase("wav") ||
+               fileExtension.equalsIgnoreCase("ogg") ||
+               fileExtension.equalsIgnoreCase("aac") ||
+               fileExtension.equalsIgnoreCase("flac");
     }
     
     // 获取图片文件的Content-Type
@@ -454,6 +466,26 @@ public class ResourceController {
         }
     }
 
+    // 获取音频文件的Content-Type
+    private String getAudioContentType(String fileExtension) {
+        if (fileExtension == null) return "audio/mpeg";
+        
+        switch(fileExtension.toLowerCase()) {
+            case "mp3":
+                return "audio/mpeg";
+            case "wav":
+                return "audio/wav";
+            case "ogg":
+                return "audio/ogg";
+            case "aac":
+                return "audio/aac";
+            case "flac":
+                return "audio/flac";
+            default:
+                return "audio/mpeg";
+        }
+    }
+
     // 资源预览
     @GetMapping("/preview/{id}")
     public ResponseEntity<?> previewResource(@PathVariable Integer id) {
@@ -491,6 +523,8 @@ public class ResourceController {
                 headers.add(HttpHeaders.CONTENT_TYPE, "text/plain; charset=UTF-8");
             } else if (isVideoFile(fileExtension)) {
                 headers.add(HttpHeaders.CONTENT_TYPE, getVideoContentType(fileExtension));
+            } else if (isAudioFile(fileExtension)) {
+                headers.add(HttpHeaders.CONTENT_TYPE, getAudioContentType(fileExtension));
             } else {
                 // 对于不支持直接预览的文件类型，使用下载方式处理
                 headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFileName() + "\"");
@@ -506,6 +540,75 @@ public class ResourceController {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 添加Office文件预览API
+    @GetMapping("/office-preview/{id}")
+    public ResponseEntity<String> previewOfficeFile(@PathVariable Integer id) {
+        try {
+            Resource resource = resourceService.findById(id);
+            if (resource == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // 增加浏览次数
+            resourceService.increaseViewCount(id);
+            
+            // 获取文件
+            File file = new File(resource.getFilePath());
+            if (!file.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            // 获取文件扩展名
+            String fileName = resource.getFileName();
+            String fileExtension = "";
+            if (fileName != null && fileName.contains(".")) {
+                fileExtension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+            }
+            
+            // 检查是否为Office文件
+            if (!isOfficeFile(fileExtension)) {
+                return ResponseEntity.badRequest().body("不支持的文件类型");
+            }
+            
+            // 构建Office Online或其他预览服务的URL
+            // 这里以Microsoft Office Online为例
+            String serverUrl = "http://localhost:8088"; // 替换为你的服务器URL
+            String fileUrl = serverUrl + "/resources/download/" + id;
+            
+            // 对URL进行编码
+            String encodedFileUrl = java.net.URLEncoder.encode(fileUrl, "UTF-8");
+            
+            // 使用Office Online Viewer
+            String officeOnlineUrl = "https://view.officeapps.live.com/op/view.aspx?src=" + encodedFileUrl;
+            
+            // 返回预览页面或重定向到Office Online
+            HttpHeaders headers = new HttpHeaders();
+            headers.add(HttpHeaders.CONTENT_TYPE, "text/html; charset=UTF-8");
+            
+            // 创建一个简单的HTML页面嵌入Office Online Viewer
+            String htmlContent = "<!DOCTYPE html>\n" +
+                    "<html>\n" +
+                    "<head>\n" +
+                    "    <title>Office文档预览</title>\n" +
+                    "    <style>\n" +
+                    "        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }\n" +
+                    "        iframe { width: 100%; height: 100%; border: none; }\n" +
+                    "    </style>\n" +
+                    "</head>\n" +
+                    "<body>\n" +
+                    "    <iframe src=\"" + officeOnlineUrl + "\" allowfullscreen></iframe>\n" +
+                    "</body>\n" +
+                    "</html>";
+            
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(htmlContent);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("预览失败: " + e.getMessage());
         }
     }
 } 

@@ -69,6 +69,12 @@
               <button class="view-btn" @click="viewResource(resource)">
                 查看
               </button>
+              <button
+                class="preview-btn"
+                @click="handlePreviewResource(resource)"
+              >
+                预览
+              </button>
               <button class="edit-btn" @click="editResource(resource)">
                 编辑
               </button>
@@ -295,6 +301,13 @@
               >
                 下载文件 {{ selectedResource.filename }}
               </button>
+              <button
+                class="preview-btn"
+                @click="handlePreviewResource(selectedResource)"
+                style="margin-left: 10px"
+              >
+                在线预览
+              </button>
             </div>
           </div>
         </div>
@@ -321,11 +334,96 @@
         </div>
       </div>
     </div>
+
+    <!-- 资源预览弹窗 -->
+    <el-dialog
+      v-model="showPreviewModal"
+      :title="previewingResource?.filename || '文件预览'"
+      width="80%"
+      :before-close="closePreviewModal"
+      :close-on-click-modal="false"
+      class="preview-modal"
+    >
+      <div v-loading="isLoadingPreview" class="preview-container">
+        <div
+          v-if="!isLoadingPreview && !previewSupported"
+          class="preview-not-supported"
+        >
+          <el-alert
+            title="该文件类型不支持在线预览"
+            type="warning"
+            :closable="false"
+            show-icon
+          />
+          <p class="mt-3">文件名: {{ previewingResource?.filename }}</p>
+          <el-button
+            type="primary"
+            @click="handleDownload(previewingResource.id)"
+            class="mt-3"
+          >
+            下载文件
+          </el-button>
+        </div>
+
+        <!-- PDF预览 -->
+        <div v-if="previewType === 'pdf'" class="pdf-container">
+          <iframe
+            :src="previewUrl"
+            width="100%"
+            height="600"
+            frameborder="0"
+          ></iframe>
+        </div>
+
+        <!-- 图片预览 -->
+        <div v-if="previewType === 'image'" class="image-container">
+          <img :src="previewUrl" alt="图片预览" />
+        </div>
+
+        <!-- 视频预览 -->
+        <div v-if="previewType === 'video'" class="video-container">
+          <video controls width="100%">
+            <source
+              :src="previewUrl"
+              :type="`video/${getFileExtension(previewingResource.filename)}`"
+            />
+            您的浏览器不支持视频播放
+          </video>
+        </div>
+
+        <!-- 音频预览 -->
+        <div v-if="previewType === 'audio'" class="audio-container">
+          <audio controls>
+            <source
+              :src="previewUrl"
+              :type="`audio/${getFileExtension(previewingResource.filename)}`"
+            />
+            您的浏览器不支持音频播放
+          </audio>
+        </div>
+
+        <!-- 文本预览 -->
+        <div v-if="previewType === 'text'" class="text-container">
+          <pre>{{ textContent }}</pre>
+        </div>
+
+        <!-- Office预览 -->
+        <div v-if="previewType === 'office'" class="office-container">
+          <iframe
+            :src="officePreviewUrl"
+            width="100%"
+            height="600"
+            frameborder="0"
+          ></iframe>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { ref, computed, reactive, onMounted } from "vue";
+import axios from "axios";
 import { getTagList } from "@/api/tag";
 import {
   getResourceList,
@@ -335,6 +433,8 @@ import {
   deleteResource,
   getResourceTypes,
   downloadResource,
+  getResourcePreviewUrl,
+  checkPreviewSupport,
 } from "@/api/resource";
 import { ElMessage, ElLoading } from "element-plus";
 
@@ -360,8 +460,16 @@ export default {
     const showEditResourceModal = ref(false);
     const showResourceDetail = ref(false);
     const showDeleteModal = ref(false);
+    const showPreviewModal = ref(false);
     const resourceToDelete = ref(null);
     const selectedResource = ref({});
+    const previewingResource = ref(null);
+    const previewUrl = ref("");
+    const previewType = ref("other");
+    const previewSupported = ref(false);
+    const isLoadingPreview = ref(false);
+    const textContent = ref("");
+    const officePreviewUrl = ref("");
 
     // 资源类型
     const resourceTypes = ref([]);
@@ -929,6 +1037,116 @@ export default {
       return [];
     };
 
+    // 预览资源
+    const handlePreviewResource = async (resource) => {
+      previewingResource.value = { ...resource };
+      showPreviewModal.value = true;
+      isLoadingPreview.value = true;
+      previewSupported.value = false;
+      textContent.value = "";
+      officePreviewUrl.value = "";
+
+      try {
+        // 获取文件扩展名
+        const fileExt = getFileExtension(resource.filename).toLowerCase();
+
+        // 构建预览URL - 修正API路径
+        const baseUrl = `/api/resources/preview/${resource.id}`;
+        previewUrl.value = baseUrl;
+
+        // 根据文件类型设置预览方式
+        if (["pdf"].includes(fileExt)) {
+          previewType.value = "pdf";
+          previewSupported.value = true;
+        } else if (
+          ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(fileExt)
+        ) {
+          previewType.value = "image";
+          previewSupported.value = true;
+        } else if (["mp4", "webm", "ogg", "mov"].includes(fileExt)) {
+          previewType.value = "video";
+          previewSupported.value = true;
+        } else if (["mp3", "wav", "ogg", "aac"].includes(fileExt)) {
+          previewType.value = "audio";
+          previewSupported.value = true;
+        } else if (
+          [
+            "txt",
+            "md",
+            "json",
+            "xml",
+            "html",
+            "css",
+            "js",
+            "java",
+            "py",
+            "c",
+            "cpp",
+          ].includes(fileExt)
+        ) {
+          previewType.value = "text";
+          previewSupported.value = true;
+
+          // 修正获取文本内容的API请求
+          try {
+            const response = await axios.get(
+              `/api/resources/preview/${resource.id}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                responseType: "text",
+              }
+            );
+            textContent.value = response.data;
+          } catch (error) {
+            console.error("获取文本内容失败:", error);
+            textContent.value = "无法加载文本内容";
+            previewSupported.value = true; // 仍然显示预览容器，但内容为错误信息
+          }
+        } else if (
+          ["doc", "docx", "xls", "xlsx", "ppt", "pptx"].includes(fileExt)
+        ) {
+          previewType.value = "office";
+          previewSupported.value = true;
+          // 修正Office文件预览服务的URL
+          officePreviewUrl.value = `/api/resources/office-preview/${resource.id}`;
+        } else {
+          previewSupported.value = false;
+        }
+      } catch (error) {
+        console.error("预览文件失败:", error);
+        ElMessage.error("预览文件失败");
+        previewSupported.value = false;
+      } finally {
+        isLoadingPreview.value = false;
+      }
+    };
+
+    // 关闭预览弹窗
+    const closePreviewModal = () => {
+      showPreviewModal.value = false;
+      previewingResource.value = null;
+      previewUrl.value = "";
+      previewType.value = "other";
+      textContent.value = "";
+      officePreviewUrl.value = "";
+    };
+
+    // 获取文件扩展名
+    const getFileExtension = (filename) => {
+      if (!filename) return "";
+      return filename.split(".").pop() || "";
+    };
+
+    // 格式化文件大小
+    const formatFileSize = (size) => {
+      if (!size) return "0 Bytes";
+      const units = ["Bytes", "KB", "MB", "GB", "TB"];
+      const i = Math.floor(Math.log(size) / Math.log(1024));
+      return Math.round(size / Math.pow(1024, i)) + " " + units[i];
+    };
+
     onMounted(() => {
       fetchTags();
       loadResourceTypes().then(() => {
@@ -951,8 +1169,10 @@ export default {
       showEditResourceModal,
       showResourceDetail,
       showDeleteModal,
+      showPreviewModal,
       resourceToDelete,
       selectedResource,
+      previewingResource,
       resourceForm,
       handleSearch,
       getTypeClass,
@@ -985,6 +1205,16 @@ export default {
       isLoading,
       total,
       pageSize,
+      previewUrl,
+      previewType,
+      previewSupported,
+      isLoadingPreview,
+      textContent,
+      officePreviewUrl,
+      closePreviewModal,
+      getFileExtension,
+      formatFileSize,
+      handlePreviewResource,
     };
   },
 };
@@ -1465,5 +1695,175 @@ export default {
   font-size: 11px;
   height: 20px;
   line-height: 20px;
+}
+
+/* 预览弹窗样式 */
+.preview-modal {
+  width: 90%;
+  max-width: 1000px;
+  max-height: 90vh;
+}
+
+.preview-container {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-container,
+.image-container,
+.video-container,
+.text-container,
+.office-container,
+.generic-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pdf-container iframe {
+  width: 100%;
+  height: 600px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.image-container img {
+  max-width: 100%;
+  max-height: 600px;
+  object-fit: contain;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.video-container video {
+  max-width: 100%;
+  max-height: 600px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+}
+
+.text-container {
+  width: 100%;
+  height: 600px;
+  overflow-y: auto;
+  background-color: #f5f5f5;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  padding: 16px;
+}
+
+.text-content {
+  white-space: pre-wrap;
+  font-family: monospace;
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.office-container {
+  width: 100%;
+}
+
+.office-preview-message {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.office-alternatives {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.generic-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px;
+}
+
+.file-icon {
+  font-size: 60px;
+  color: #1890ff;
+  margin-bottom: 20px;
+}
+
+.file-info {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.file-info p {
+  margin: 5px 0;
+}
+
+.preview-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+}
+
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #1890ff;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 2s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  font-size: 16px;
+  color: #666;
+}
+
+.preview-not-supported {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+}
+
+.not-supported-icon {
+  font-size: 60px;
+  color: #faad14;
+  margin-bottom: 20px;
+}
+
+.not-supported-text {
+  margin-bottom: 20px;
+}
+
+.not-supported-text p {
+  margin: 5px 0;
+  color: #666;
+}
+
+.preview-btn {
+  background-color: #13c2c2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
 }
 </style>
