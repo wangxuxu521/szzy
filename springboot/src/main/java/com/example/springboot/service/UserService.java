@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
 import java.util.List;
 
 @Service
@@ -34,13 +35,30 @@ public class UserService {
      * 保存用户（新增或更新）
      */
     public void save(User user) {
+        // 检查用户名是否已存在
         if (user.getUserId() == null) {
+            User existingUser = userMapper.findByUsername(user.getUsername());
+            if (existingUser != null) {
+                throw new RuntimeException("用户名已存在");
+            }
             // 新增用户时加密密码
             user.setPassword(passwordEncoder.encode(user.getPassword()));
+            // 设置创建时间
+            user.setCreateTime(new Date());
             userMapper.insert(user);
         } else {
             // 更新用户时如果密码发生变化则加密
             User existingUser = userMapper.findById(user.getUserId());
+            if (existingUser == null) {
+                throw new RuntimeException("用户不存在");
+            }
+            
+            // 检查用户名是否被其他用户使用
+            User userWithSameUsername = userMapper.findByUsername(user.getUsername());
+            if (userWithSameUsername != null && !userWithSameUsername.getUserId().equals(user.getUserId())) {
+                throw new RuntimeException("用户名已被其他用户使用");
+            }
+            
             if (!existingUser.getPassword().equals(user.getPassword())) {
                 user.setPassword(passwordEncoder.encode(user.getPassword()));
             }

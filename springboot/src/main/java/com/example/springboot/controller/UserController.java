@@ -59,8 +59,36 @@ public class UserController {
 
     @PostMapping
     public Result save(@RequestBody User user) {
-        userService.save(user);
-        return Result.success();
+        try {
+            // 验证必填字段
+            if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+                return Result.error("用户名不能为空");
+            }
+            if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+                return Result.error("密码不能为空");
+            }
+            if (user.getRole() == null || user.getRole().trim().isEmpty()) {
+                return Result.error("角色不能为空");
+            }
+            
+            // 验证角色是否合法
+            if (!user.getRole().matches("^(admin|teacher|student)$")) {
+                return Result.error("角色不合法");
+            }
+            
+            // 验证密码长度
+            if (user.getPassword().length() < 6) {
+                return Result.error("密码长度不能少于6位");
+            }
+            
+            userService.save(user);
+            return Result.success("用户保存成功");
+        } catch (RuntimeException e) {
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("保存用户失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/{id}")

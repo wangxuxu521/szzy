@@ -86,7 +86,7 @@
           <button class="close-btn" @click="closeModal">×</button>
         </div>
         <div class="modal-body">
-          <form @submit.prevent="submitUserForm">
+          <form @submit.prevent="handleSubmit">
             <div class="form-group">
               <label>用户名</label>
               <input type="text" v-model="userForm.username" required />
@@ -375,69 +375,67 @@ export default {
     };
 
     // 提交用户表单
-    const submitUserForm = async () => {
-      submitting.value = true;
+    const handleSubmit = async () => {
       try {
-        if (showEditUserModal.value) {
-          // 编辑现有用户
-          const userData = {
-            id: userForm.id,
-            userId: userForm.id,
-            username: userForm.username,
-            name: userForm.name,
-            role: userForm.role,
-          };
-
-          // 只有当密码不为空时才更新密码
-          if (userForm.password) {
-            userData.password = userForm.password;
-          }
-
-          await updateUserInfo(userData);
-
-          // 更新本地列表
-          const index = users.value.findIndex(
-            (user) => (user.id || user.userId) === userForm.id
-          );
-          if (index !== -1) {
-            users.value[index] = {
-              ...users.value[index],
-              username: userForm.username,
-              name: userForm.name,
-              role: userForm.role,
-            };
-          }
-
-          ElMessage.success("用户已成功更新");
-        } else {
-          // 添加新用户
-          const userData = {
-            username: userForm.username,
-            name: userForm.name,
-            password: userForm.password,
-            role: userForm.role,
-          };
-
-          const response = await addUser(userData);
-
-          // 添加到本地列表
-          const newUser = {
-            id: response.data?.id || response.data?.userId || Date.now(),
-            userId: response.data?.userId || response.data?.id || Date.now(),
-            username: userForm.username,
-            name: userForm.name,
-            role: userForm.role,
-            createTime: new Date().toISOString().split("T")[0],
-          };
-
-          users.value.unshift(newUser);
-          ElMessage.success("用户已成功添加");
+        // 验证表单
+        if (!userForm.username || !userForm.password || !userForm.role) {
+          ElMessage.error("请填写完整信息");
+          return;
         }
 
-        closeModal();
-      } catch (err) {
-        console.error("提交用户表单失败:", err);
-        ElMessage.error(`提交用户表单失败: ${err.message || "未知错误"}`);
+        // 验证密码长度
+        if (userForm.password.length < 6) {
+          ElMessage.error("密码长度不能少于6位");
+          return;
+        }
+
+        // 验证角色
+        if (!["admin", "teacher", "student"].includes(userForm.role)) {
+          ElMessage.error("角色不合法");
+          return;
+        }
+
+        // 准备提交的数据
+        const userData = {
+          username: userForm.username,
+          password: userForm.password,
+          name: userForm.name,
+          role: userForm.role,
+        };
+
+        // 如果是编辑模式，添加用户ID
+        if (userForm.id) {
+          userData.userId = userForm.id;
+        }
+
+        submitting.value = true;
+        const response = await updateUserInfo(userData);
+
+        // 检查响应
+        if (response && (response.code === 0 || response.success)) {
+          ElMessage.success("保存成功");
+          showEditUserModal.value = false;
+          loadUsers(); // 重新加载用户列表
+        } else {
+          // 如果响应中没有code或success字段，但也没有错误，也认为是成功的
+          if (!response.error) {
+            ElMessage.success("保存成功");
+            showEditUserModal.value = false;
+            loadUsers();
+          } else {
+            ElMessage.error(response.message || response.error || "保存失败");
+          }
+        }
+      } catch (error) {
+        console.error("保存用户失败:", error);
+        // 检查是否是用户名已存在的错误
+        if (error.response?.data?.message?.includes("用户名已存在")) {
+          ElMessage.error("用户名已存在，请使用其他用户名");
+        } else {
+          ElMessage.error(
+            error.response?.data?.message || "保存失败，请稍后重试"
+          );
+        }
       } finally {
         submitting.value = false;
       }
@@ -483,7 +481,7 @@ export default {
       editUser,
       confirmDelete,
       deleteUser,
-      submitUserForm,
+      handleSubmit,
       closeModal,
     };
   },
