@@ -113,7 +113,7 @@ export default {
       {
         id: 1,
         title: "计算机网络中的爱国情怀",
-        type: "教学案例",
+        type: "计算机",
         views: 1234,
         author: "张教授",
         tags: ["计算机网络", "爱国主义"],
@@ -121,7 +121,7 @@ export default {
       {
         id: 2,
         title: "数据结构与民族精神",
-        type: "教学资源",
+        type: "通信",
         views: 890,
         author: "李教授",
         tags: ["数据结构", "民族精神"],

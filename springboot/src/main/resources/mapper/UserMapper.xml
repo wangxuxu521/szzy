@@ -19,12 +19,12 @@
     </select>
 
     <select id="findAll" resultMap="UserResultMap">
-        SELECT * FROM user
+        SELECT * FROM user ORDER BY create_time DESC
     </select>
 
     <insert id="insert" parameterType="com.example.springboot.entity.User" useGeneratedKeys="true" keyProperty="userId">
         INSERT INTO user(username, password, name, role, create_time)
-        VALUES(#{username}, #{password}, #{name}, #{role}, #{createTime})
+        VALUES(#{username}, #{password}, #{name}, #{role}, NOW())
     </insert>
 
     <update id="update" parameterType="com.example.springboot.entity.User">
@@ -37,6 +37,10 @@
 
     <select id="findByUsername" parameterType="string" resultMap="UserResultMap">
         SELECT * FROM user WHERE username = #{username}
+    </select>
+
+    <select id="findByRole" resultMap="UserResultMap">
+        SELECT * FROM user WHERE role = #{role}
     </select>
 
 </mapper>

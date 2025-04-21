@@ -7,16 +7,38 @@ import java.util.List;
 
 @Mapper
 public interface UserMapper {
+    /**
+     * 根据ID查找用户
+     */
     User findById(Integer userId);
-    List<User> findAll();
-    void insert(User user);
-    void update(User user);
-    void delete(Integer userId);
     
     /**
-     * 根据用户名查询用户
-     * @param username 用户名
-     * @return 用户对象，如果不存在则返回null
+     * 根据用户名查找用户
      */
-    User findByUsername(@Param("username") String username);
+    User findByUsername(String username);
+    
+    /**
+     * 根据角色查找用户
+     */
+    List<User> findByRole(@Param("role") String role);
+    
+    /**
+     * 查找所有用户
+     */
+    List<User> findAll();
+    
+    /**
+     * 添加用户
+     */
+    void insert(User user);
+    
+    /**
+     * 更新用户
+     */
+    void update(User user);
+    
+    /**
+     * 删除用户
+     */
+    void delete(Integer userId);
 } 

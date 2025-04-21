@@ -1,6 +1,6 @@
 package com.example.springboot.controller;
 
-import com.example.springboot.common.Result;
+import com.example.springboot.util.Result;
 import com.example.springboot.entity.User;
 import com.example.springboot.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -107,5 +107,16 @@ public class UserController {
     public Result delete(@PathVariable Integer id) {
         userService.delete(id);
         return Result.success();
+    }
+
+    // 获取所有教师
+    @GetMapping("/teachers")
+    public Result findAllTeachers() {
+        try {
+            return Result.success(userService.findByRole("teacher"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("获取教师列表失败: " + e.getMessage());
+        }
     }
 } 

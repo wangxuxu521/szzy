@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.springboot.mapper.CourseMapper">
+
+    <resultMap id="CourseResultMap" type="com.example.springboot.entity.Course">
+        <id property="courseId" column="course_id"/>
+        <result property="courseName" column="course_name"/>
+        <result property="description" column="description"/>
+        <result property="typeId" column="type_id"/>
+        <result property="teacherId" column="teacher_id"/>
+        <result property="createTime" column="create_time"/>
+        <result property="status" column="status"/>
+        <result property="coverImage" column="cover_image"/>
+        <result property="typeName" column="type_name"/>
+        <result property="teacherName" column="name"/>
+    </resultMap>
+
+    <select id="findById" parameterType="int" resultMap="CourseResultMap">
+        SELECT c.*, t.type_name, u.name
+        FROM course c
+        LEFT JOIN type t ON c.type_id = t.type_id
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE c.course_id = #{courseId}
+    </select>
+
+    <select id="findAll" resultMap="CourseResultMap">
+        SELECT c.*, t.type_name, u.name
+        FROM course c
+        LEFT JOIN type t ON c.type_id = t.type_id
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE c.status = 1
+        ORDER BY c.create_time DESC
+    </select>
+    
+    <select id="findByTypeId" parameterType="int" resultMap="CourseResultMap">
+        SELECT c.*, t.type_name, u.name
+        FROM course c
+        LEFT JOIN type t ON c.type_id = t.type_id
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE c.type_id = #{typeId} AND c.status = 1
+        ORDER BY c.create_time DESC
+    </select>
+    
+    <select id="findByTeacherId" parameterType="int" resultMap="CourseResultMap">
+        SELECT c.*, t.type_name, u.name
+        FROM course c
+        LEFT JOIN type t ON c.type_id = t.type_id
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE c.teacher_id = #{teacherId} AND c.status = 1
+        ORDER BY c.create_time DESC
+    </select>
+    
+    <select id="searchCourses" resultMap="CourseResultMap">
+        SELECT c.*, t.type_name, u.name
+        FROM course c
+        LEFT JOIN type t ON c.type_id = t.type_id
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        <where>
+            c.status = 1
+            <if test="typeId != null">
+                AND c.type_id = #{typeId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    c.course_name LIKE CONCAT('%', #{keyword}, '%') OR
+                    c.description LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+        </where>
+        ORDER BY c.create_time DESC
+    </select>
+
+    <insert id="insert" parameterType="com.example.springboot.entity.Course" useGeneratedKeys="true" keyProperty="courseId">
+        INSERT INTO course(
+            course_name, description, type_id, teacher_id, 
+            create_time, status, cover_image
+        )
+        VALUES(
+            #{courseName}, #{description}, #{typeId}, #{teacherId}, 
+            NOW(), #{status}, #{coverImage}
+        )
+    </insert>
+
+    <update id="update" parameterType="com.example.springboot.entity.Course">
+        UPDATE course 
+        SET course_name = #{courseName},
+            description = #{description},
+            type_id = #{typeId},
+            status = #{status}
+            <if test="coverImage != null and coverImage != ''">
+                , cover_image = #{coverImage}
+            </if>
+        WHERE course_id = #{courseId}
+    </update>
+
+    <delete id="delete" parameterType="int">
+        DELETE FROM course WHERE course_id = #{courseId}
+    </delete>
+
+</mapper> 

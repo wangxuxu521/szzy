@@ -28,4 +28,10 @@ public interface ResourceMapper {
      * @return 热门资源列表
      */
     List<Resource> findHotResources(@Param("limit") Integer limit);
+    
+    /**
+     * 获取所有不同的资源类型
+     * @return 资源类型列表
+     */
+    List<String> findAllTypes();
 } 

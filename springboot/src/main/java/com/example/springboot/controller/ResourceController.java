@@ -89,6 +89,18 @@ public class ResourceController {
         }
     }
 
+    // 获取资源类型列表
+    @GetMapping("/types")
+    public Result getResourceTypes() {
+        try {
+            List<String> types = resourceService.findAllTypes();
+            return Result.success(types);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("获取资源类型列表失败: " + e.getMessage());
+        }
+    }
+
     // 上传资源
     @PostMapping("/upload")
     public Result uploadResource(@RequestParam("file") MultipartFile file,

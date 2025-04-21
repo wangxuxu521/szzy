@@ -7,22 +7,26 @@
           type="text"
           v-model="searchQuery"
           placeholder="搜索资源..."
-          @input="handleSearch"
+          @keyup.enter="handleSearch"
         />
-        <select v-model="resourceTypeFilter">
+        <select v-model="resourceTypeFilter" @change="handleSearch">
           <option value="">所有类型</option>
-          <option value="教学资源">教学资源</option>
-          <option value="教学案例">教学案例</option>
-          <option value="研究成果">研究成果</option>
+          <option v-for="type in resourceTypes" :key="type" :value="type">
+            {{ type }}
+          </option>
         </select>
+        <button class="search-btn" @click="handleSearch">搜索</button>
       </div>
       <button class="add-btn" @click="showAddResourceModal = true">
         上传资源
       </button>
     </div>
 
-    <div class="table-container">
-      <table class="resource-table">
+    <div class="table-container" v-loading="isLoading">
+      <div v-if="!isLoading && filteredResources.length === 0" class="no-data">
+        暂无数据
+      </div>
+      <table v-else class="resource-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -91,14 +95,17 @@
       </table>
     </div>
 
-    <div class="pagination">
-      <button :disabled="currentPage === 1" @click="currentPage--">
-        上一页
-      </button>
-      <span>{{ currentPage }} / {{ totalPages }}</span>
-      <button :disabled="currentPage === totalPages" @click="currentPage++">
-        下一页
-      </button>
+    <div class="pagination" v-if="totalPages > 1">
+      <el-pagination
+        background
+        layout="prev, pager, next, sizes"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+        :current-page="currentPage"
+        :page-size="pageSize"
+        @current-change="handlePageChange"
+        @size-change="handleSizeChange"
+      />
     </div>
 
     <!-- 添加/编辑资源弹窗 -->
@@ -120,9 +127,9 @@
             <div class="form-group">
               <label>类型</label>
               <select v-model="resourceForm.type" required>
-                <option value="教学资源">教学资源</option>
-                <option value="教学案例">教学案例</option>
-                <option value="研究成果">研究成果</option>
+                <option v-for="type in resourceTypes" :key="type" :value="type">
+                  {{ type }}
+                </option>
               </select>
             </div>
             <div class="form-group">
@@ -132,6 +139,51 @@
             <div class="form-group">
               <label>标签</label>
               <div class="tag-select-container">
+                <div class="tag-quick-filters">
+                  <div class="filter-label">快速筛选:</div>
+                  <div
+                    class="filter-tag"
+                    @click="filterTagsByType('theme')"
+                    :class="{ active: currentTagFilter === 'theme' }"
+                  >
+                    主题
+                  </div>
+                  <div
+                    class="filter-tag"
+                    @click="filterTagsByType('subject')"
+                    :class="{ active: currentTagFilter === 'subject' }"
+                  >
+                    学科
+                  </div>
+                  <div
+                    class="filter-tag"
+                    @click="filterTagsByType('format')"
+                    :class="{ active: currentTagFilter === 'format' }"
+                  >
+                    格式
+                  </div>
+                  <div
+                    class="filter-tag"
+                    @click="filterTagsByType('all')"
+                    :class="{ active: currentTagFilter === 'all' }"
+                  >
+                    全部
+                  </div>
+                </div>
+                <div class="popular-tags" v-if="popularTags.length > 0">
+                  <div class="popular-tags-title">推荐标签:</div>
+                  <div class="popular-tags-list">
+                    <span
+                      v-for="tag in popularTags"
+                      :key="tag.tagId"
+                      class="popular-tag"
+                      :class="getTagTypeClass(tag.tagType)"
+                      @click="addTag(tag.tagName)"
+                    >
+                      {{ tag.tagName }}
+                    </span>
+                  </div>
+                </div>
                 <el-select
                   v-model="selectedTags"
                   multiple
@@ -142,7 +194,7 @@
                   style="width: 100%"
                 >
                   <el-option
-                    v-for="tag in availableTags"
+                    v-for="tag in filteredTags"
                     :key="tag.tagId"
                     :label="tag.tagName"
                     :value="tag.tagName"
@@ -161,7 +213,7 @@
             </div>
             <div class="form-group" v-if="!showEditResourceModal">
               <label>上传文件</label>
-              <input type="file" @change="handleFileUpload" />
+              <input type="file" @change="handleFileUpload" required />
             </div>
             <div class="form-buttons">
               <button type="button" class="cancel-btn" @click="closeModal">
@@ -217,17 +269,19 @@
           <div class="detail-item">
             <div class="detail-label">描述</div>
             <div class="detail-value description">
-              {{ selectedResource.description }}
+              {{ selectedResource.description || "无描述" }}
             </div>
           </div>
           <div class="detail-item">
             <div class="detail-label">标签</div>
             <div class="detail-value tags">
               <span
-                v-for="(tag, index) in selectedResource.tags"
+                v-for="(tag, index) in parseResourceTags(selectedResource.tags)"
                 :key="index"
                 class="tag"
+                :class="getTagClass(tag)"
               >
+                <span class="tag-icon">{{ getTagIcon(tag) }}</span>
                 {{ tag }}
               </span>
             </div>
@@ -235,9 +289,12 @@
           <div class="detail-item">
             <div class="detail-label">文件</div>
             <div class="detail-value">
-              <a href="#" class="download-link"
-                >点击下载 {{ selectedResource.filename }}</a
+              <button
+                class="download-btn"
+                @click="handleDownload(selectedResource.id)"
               >
+                下载文件 {{ selectedResource.filename }}
+              </button>
             </div>
           </div>
         </div>
@@ -269,92 +326,30 @@
 
 <script>
 import { ref, computed, reactive, onMounted } from "vue";
-import { getTagList, saveTag } from "@/api/tag";
-import { ElMessage } from "element-plus";
+import { getTagList } from "@/api/tag";
+import {
+  getResourceList,
+  searchResources,
+  uploadResource,
+  updateResource,
+  deleteResource,
+  getResourceTypes,
+  downloadResource,
+} from "@/api/resource";
+import { ElMessage, ElLoading } from "element-plus";
 
 export default {
   name: "ResourceManagement",
   setup() {
     // 资源数据
-    const resources = ref([
-      {
-        id: 1,
-        title: "计算机网络中的爱国情怀",
-        type: "教学案例",
-        author: "张教授",
-        uploadDate: "2024-01-15",
-        views: 1234,
-        downloads: 567,
-        status: "approved",
-        description:
-          "本教学案例通过计算机网络发展历史，介绍了我国在计算机网络领域的发展历程和爱国情怀。",
-        tags: ["计算机网络", "爱国主义", "教学案例"],
-        filename: "计算机网络中的爱国情怀.pdf",
-      },
-      {
-        id: 2,
-        title: "数据结构与民族精神",
-        type: "教学资源",
-        author: "李教授",
-        uploadDate: "2024-01-20",
-        views: 890,
-        downloads: 456,
-        status: "approved",
-        description:
-          "通过数据结构教学，融入中华民族传统文化元素，培养学生的民族自豪感。",
-        tags: ["数据结构", "民族精神", "文化融合"],
-        filename: "数据结构与民族精神.pptx",
-      },
-      {
-        id: 3,
-        title: "人工智能伦理与价值观",
-        type: "研究成果",
-        author: "王教授",
-        uploadDate: "2024-01-25",
-        views: 567,
-        downloads: 234,
-        status: "approved",
-        description:
-          "探讨人工智能发展中的伦理问题，引导学生树立正确的科技伦理观。",
-        tags: ["人工智能", "伦理价值观", "科技发展"],
-        filename: "人工智能伦理与价值观.pdf",
-      },
-      {
-        id: 4,
-        title: "软件工程中的团队协作精神",
-        type: "教学资源",
-        author: "赵教授",
-        uploadDate: "2024-02-01",
-        views: 432,
-        downloads: 198,
-        status: "pending",
-        description:
-          "通过软件工程项目实践，培养学生的团队协作精神和集体主义价值观。",
-        tags: ["软件工程", "团队协作", "价值观教育"],
-        filename: "软件工程中的团队协作精神.docx",
-      },
-      {
-        id: 5,
-        title: "数据科学与社会责任",
-        type: "研究成果",
-        author: "周教授",
-        uploadDate: "2024-02-05",
-        views: 321,
-        downloads: 145,
-        status: "rejected",
-        description:
-          "探讨数据科学发展中的社会责任问题，引导学生树立正确的社会责任感。",
-        tags: ["数据科学", "社会责任", "职业道德"],
-        filename: "数据科学与社会责任.pdf",
-      },
-    ]);
+    const resources = ref([]);
+    const isLoading = ref(false);
 
     // 分页
     const currentPage = ref(1);
     const pageSize = ref(10);
-    const totalPages = computed(() =>
-      Math.ceil(filteredResources.value.length / pageSize.value)
-    );
+    const total = ref(0);
+    const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
 
     // 搜索和筛选
     const searchQuery = ref("");
@@ -368,11 +363,35 @@ export default {
     const resourceToDelete = ref(null);
     const selectedResource = ref({});
 
+    // 资源类型
+    const resourceTypes = ref([]);
+
+    // 加载资源类型
+    const loadResourceTypes = async () => {
+      try {
+        const response = await getResourceTypes();
+        if (response && typeof response === "object") {
+          if (Array.isArray(response)) {
+            resourceTypes.value = response;
+          } else if (response.data && Array.isArray(response.data)) {
+            resourceTypes.value = response.data;
+          }
+        }
+
+        if (!resourceTypes.value || resourceTypes.value.length === 0) {
+          resourceTypes.value = ["计算机", "通信", "人工智能"];
+        }
+      } catch (error) {
+        console.error("获取资源类型失败:", error);
+        resourceTypes.value = ["计算机", "通信", "人工智能"];
+      }
+    };
+
     // 表单数据
     const resourceForm = reactive({
       id: null,
       title: "",
-      type: "教学资源",
+      type: "",
       description: "",
       tags: "",
       file: null,
@@ -381,15 +400,109 @@ export default {
     // 标签数据
     const availableTags = ref([]);
     const selectedTags = ref([]);
+    const popularTags = ref([]);
+    const currentTagFilter = ref("all");
+
+    // 过滤后的标签列表
+    const filteredTags = computed(() => {
+      if (currentTagFilter.value === "all") {
+        return availableTags.value;
+      } else {
+        return availableTags.value.filter(
+          (tag) => tag.tagType === currentTagFilter.value
+        );
+      }
+    });
+
+    // 按类型过滤标签
+    const filterTagsByType = (type) => {
+      currentTagFilter.value = type;
+    };
+
+    // 添加标签到已选中
+    const addTag = (tagName) => {
+      const cleanedTag = tagName.replace(/["'\[\]]/g, "").trim();
+      if (cleanedTag && !selectedTags.value.includes(cleanedTag)) {
+        selectedTags.value.push(cleanedTag);
+      }
+    };
 
     // 获取标签列表
     const fetchTags = async () => {
       try {
         const response = await getTagList();
         availableTags.value = response;
+        popularTags.value = response
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 5);
       } catch (error) {
         console.error("获取标签列表失败", error);
+        availableTags.value = [
+          { tagId: 1, tagName: "爱国主义", tagType: "theme" },
+          { tagId: 2, tagName: "工科", tagType: "subject" },
+          { tagId: 3, tagName: "PDF", tagType: "format" },
+          { tagId: 4, tagName: "团队协作", tagType: "theme" },
+          { tagId: 5, tagName: "文科", tagType: "subject" },
+          { tagId: 6, tagName: "Word", tagType: "format" },
+        ];
+        popularTags.value = availableTags.value.slice(0, 3);
       }
+    };
+
+    // 获取资源列表
+    const fetchResources = async () => {
+      isLoading.value = true;
+      try {
+        let data;
+        if (searchQuery.value || resourceTypeFilter.value) {
+          // 搜索
+          data = await searchResources({
+            keyword: searchQuery.value,
+            type: resourceTypeFilter.value,
+            page: currentPage.value,
+            size: pageSize.value,
+          });
+        } else {
+          // 获取全部
+          data = await getResourceList({
+            page: currentPage.value,
+            size: pageSize.value,
+          });
+        }
+
+        if (data) {
+          // 处理资源列表数据
+          resources.value = data.map((item) => ({
+            id: item.resourceId,
+            title: item.title,
+            type: item.type || "未分类",
+            author: item.uploaderName || "未知用户",
+            uploadDate: formatDate(item.uploadTime),
+            views: item.viewCount || 0,
+            downloads: item.downloadCount || 0,
+            status: item.reviewStatus || "pending",
+            description: item.description,
+            tags: item.tags,
+            filename: item.fileName,
+            filePath: item.filePath,
+            fileSize: item.fileSize,
+          }));
+
+          total.value = data.length;
+        }
+      } catch (error) {
+        console.error("获取资源列表失败:", error);
+        ElMessage.error("获取资源列表失败");
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    // 格式化日期
+    const formatDate = (dateString) => {
+      if (!dateString) return "-";
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
     };
 
     // 标签类型显示
@@ -411,45 +524,35 @@ export default {
       return typeMap[type] || type;
     };
 
-    // 过滤后的资源列表
+    // 过滤后的资源列表 - 现在通过API筛选，这个computed不再需要处理筛选逻辑
     const filteredResources = computed(() => {
-      return resources.value.filter((resource) => {
-        // 类型筛选
-        if (
-          resourceTypeFilter.value &&
-          resource.type !== resourceTypeFilter.value
-        ) {
-          return false;
-        }
-
-        // 搜索关键词
-        if (searchQuery.value) {
-          const query = searchQuery.value.toLowerCase();
-          return (
-            resource.title.toLowerCase().includes(query) ||
-            resource.author.toLowerCase().includes(query) ||
-            (resource.description &&
-              resource.description.toLowerCase().includes(query))
-          );
-        }
-
-        return true;
-      });
+      return resources.value;
     });
 
     // 搜索处理
     const handleSearch = () => {
       currentPage.value = 1;
+      fetchResources();
     };
 
     // 获取类型样式类
     const getTypeClass = (type) => {
-      const typeMap = {
-        教学资源: "resource",
-        教学案例: "case",
-        研究成果: "research",
-      };
-      return typeMap[type] || "";
+      const typeMap = {};
+      if (resourceTypes.value && resourceTypes.value.length > 0) {
+        const styleClasses = [
+          "resource",
+          "case",
+          "research",
+          "custom1",
+          "custom2",
+        ];
+
+        resourceTypes.value.forEach((type, index) => {
+          const styleIndex = index % styleClasses.length;
+          typeMap[type] = styleClasses[styleIndex];
+        });
+      }
+      return typeMap[type] || "default";
     };
 
     // 获取状态名称
@@ -474,25 +577,57 @@ export default {
       resourceForm.title = resource.title;
       resourceForm.type = resource.type;
       resourceForm.description = resource.description || "";
-      resourceForm.tags = resource.tags ? resource.tags.join(", ") : "";
-      selectedTags.value = resource.tags || [];
-
+      selectedTags.value = parseResourceTags(resource.tags);
       showEditResourceModal.value = true;
     };
 
     // 审核通过资源
-    const approveResource = (resource) => {
-      const index = resources.value.findIndex((r) => r.id === resource.id);
-      if (index !== -1) {
-        resources.value[index].status = "approved";
+    const approveResource = async (resource) => {
+      try {
+        const loading = ElLoading.service({
+          text: "审核中...",
+          background: "rgba(255, 255, 255, 0.7)",
+        });
+
+        await updateResource(resource.id, {
+          reviewStatus: "approved",
+        });
+
+        const index = resources.value.findIndex((r) => r.id === resource.id);
+        if (index !== -1) {
+          resources.value[index].status = "approved";
+        }
+
+        ElMessage.success("审核通过成功");
+        loading.close();
+      } catch (error) {
+        console.error("审核操作失败:", error);
+        ElMessage.error("审核操作失败");
       }
     };
 
     // 拒绝资源
-    const rejectResource = (resource) => {
-      const index = resources.value.findIndex((r) => r.id === resource.id);
-      if (index !== -1) {
-        resources.value[index].status = "rejected";
+    const rejectResource = async (resource) => {
+      try {
+        const loading = ElLoading.service({
+          text: "操作中...",
+          background: "rgba(255, 255, 255, 0.7)",
+        });
+
+        await updateResource(resource.id, {
+          reviewStatus: "rejected",
+        });
+
+        const index = resources.value.findIndex((r) => r.id === resource.id);
+        if (index !== -1) {
+          resources.value[index].status = "rejected";
+        }
+
+        ElMessage.success("已拒绝该资源");
+        loading.close();
+      } catch (error) {
+        console.error("拒绝操作失败:", error);
+        ElMessage.error("拒绝操作失败");
       }
     };
 
@@ -503,13 +638,28 @@ export default {
     };
 
     // 删除资源
-    const deleteResource = () => {
+    const deleteResourceItem = async () => {
       if (resourceToDelete.value) {
-        resources.value = resources.value.filter(
-          (resource) => resource.id !== resourceToDelete.value.id
-        );
-        showDeleteModal.value = false;
-        resourceToDelete.value = null;
+        try {
+          const loading = ElLoading.service({
+            text: "删除中...",
+            background: "rgba(255, 255, 255, 0.7)",
+          });
+
+          await deleteResource(resourceToDelete.value.id);
+
+          resources.value = resources.value.filter(
+            (resource) => resource.id !== resourceToDelete.value.id
+          );
+
+          ElMessage.success("资源已成功删除");
+          showDeleteModal.value = false;
+          resourceToDelete.value = null;
+          loading.close();
+        } catch (error) {
+          console.error("删除资源失败:", error);
+          ElMessage.error("删除资源失败");
+        }
       }
     };
 
@@ -518,59 +668,128 @@ export default {
       resourceForm.file = event.target.files[0];
     };
 
+    // 下载资源
+    const handleDownload = async (resourceId) => {
+      try {
+        const loading = ElLoading.service({
+          text: "下载中...",
+          background: "rgba(255, 255, 255, 0.7)",
+        });
+
+        const response = await downloadResource(resourceId);
+
+        // 处理下载文件
+        const blob = new Blob([response], { type: response.type });
+        const link = document.createElement("a");
+        const fileName = selectedResource.value.filename || "download.file";
+
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+
+        loading.close();
+        ElMessage.success("下载成功");
+      } catch (error) {
+        console.error("下载失败:", error);
+        ElMessage.error("下载失败");
+      }
+    };
+
     // 提交资源表单
     const submitResourceForm = async () => {
-      if (showEditResourceModal.value) {
-        // 编辑现有资源
-        const index = resources.value.findIndex(
-          (resource) => resource.id === resourceForm.id
-        );
-        if (index !== -1) {
-          const tagsArray = resourceForm.tags
-            ? resourceForm.tags.split(",").map((tag) => tag.trim())
-            : [];
-
-          resources.value[index] = {
-            ...resources.value[index],
-            title: resourceForm.title,
-            type: resourceForm.type,
-            description: resourceForm.description,
-            tags: tagsArray,
-          };
-        }
-      } else {
-        // 添加新资源
-        const newId =
-          Math.max(...resources.value.map((resource) => resource.id)) + 1;
-        const tagsArray = resourceForm.tags
-          ? resourceForm.tags.split(",").map((tag) => tag.trim())
-          : [];
-        const filename = resourceForm.file
-          ? resourceForm.file.name
-          : "未知文件.pdf";
-
-        resources.value.push({
-          id: newId,
-          title: resourceForm.title,
-          type: resourceForm.type,
-          author: "当前管理员", // 实际场景中应该是当前登录的用户
-          uploadDate: new Date().toISOString().split("T")[0],
-          views: 0,
-          downloads: 0,
-          status: "pending",
-          description: resourceForm.description,
-          tags: tagsArray,
-          filename: filename,
-        });
+      // 表单验证
+      if (!resourceForm.title) {
+        ElMessage.warning("请输入资源标题");
+        return;
       }
 
-      // 使用选择的标签替代原有tags字段处理
-      const resourceData = {
-        ...resourceForm,
-        tags: selectedTags.value,
-      };
+      if (!resourceForm.type) {
+        ElMessage.warning("请选择资源类型");
+        return;
+      }
 
-      closeModal();
+      if (showAddResourceModal.value && !resourceForm.file) {
+        ElMessage.warning("请选择要上传的文件");
+        return;
+      }
+
+      const loading = ElLoading.service({
+        text: showEditResourceModal.value ? "更新中..." : "上传中...",
+        background: "rgba(255, 255, 255, 0.7)",
+      });
+
+      try {
+        if (showEditResourceModal.value) {
+          // 编辑现有资源
+          const formData = new FormData();
+          formData.append("title", resourceForm.title);
+          formData.append("type", resourceForm.type);
+          formData.append("description", resourceForm.description || "");
+          formData.append("tags", JSON.stringify(selectedTags.value));
+
+          // 可选文件更新
+          if (resourceForm.file) {
+            formData.append("file", resourceForm.file);
+          }
+
+          await updateResource(resourceForm.id, formData);
+
+          // 更新本地数据
+          const index = resources.value.findIndex(
+            (resource) => resource.id === resourceForm.id
+          );
+
+          if (index !== -1) {
+            resources.value[index] = {
+              ...resources.value[index],
+              title: resourceForm.title,
+              type: resourceForm.type,
+              description: resourceForm.description,
+              tags: selectedTags.value,
+            };
+          }
+
+          ElMessage.success("资源更新成功");
+        } else {
+          // 上传新资源
+          const formData = new FormData();
+          formData.append("title", resourceForm.title);
+          formData.append("type", resourceForm.type);
+          formData.append("description", resourceForm.description || "");
+          formData.append("tags", JSON.stringify(selectedTags.value));
+          formData.append("file", resourceForm.file);
+
+          const result = await uploadResource(formData);
+
+          // 添加到列表
+          if (result && result.resourceId) {
+            resources.value.unshift({
+              id: result.resourceId,
+              title: resourceForm.title,
+              type: resourceForm.type,
+              author: "当前用户", // 后续可从用户信息中获取
+              uploadDate: formatDate(new Date()),
+              views: 0,
+              downloads: 0,
+              status: "pending",
+              description: resourceForm.description,
+              tags: selectedTags.value,
+              filename: resourceForm.file.name,
+            });
+          }
+
+          ElMessage.success("资源上传成功，等待审核");
+        }
+
+        closeModal();
+      } catch (error) {
+        console.error("保存资源失败:", error);
+        ElMessage.error(
+          showEditResourceModal.value ? "更新资源失败" : "上传资源失败"
+        );
+      } finally {
+        loading.close();
+      }
     };
 
     // 关闭弹窗
@@ -581,15 +800,144 @@ export default {
       // 重置表单
       resourceForm.id = null;
       resourceForm.title = "";
-      resourceForm.type = "教学资源";
+      resourceForm.type = "";
       resourceForm.description = "";
       resourceForm.tags = "";
       resourceForm.file = null;
       selectedTags.value = [];
     };
 
+    // 处理页面变化
+    const handlePageChange = (page) => {
+      currentPage.value = page;
+      fetchResources();
+    };
+
+    // 处理每页数量变化
+    const handleSizeChange = (size) => {
+      pageSize.value = size;
+      currentPage.value = 1;
+      fetchResources();
+    };
+
+    // 根据标签内容确定标签类型和样式
+    const getTagClass = (tag) => {
+      // 主题相关标签
+      if (
+        tag.includes("主义") ||
+        tag.includes("精神") ||
+        tag.includes("价值观") ||
+        tag.includes("伦理")
+      ) {
+        return "tag-theme";
+      }
+      // 学科相关标签
+      else if (
+        tag.includes("计算机") ||
+        tag.includes("网络") ||
+        tag.includes("人工智能") ||
+        tag.includes("数据") ||
+        tag.includes("结构") ||
+        tag.includes("工程")
+      ) {
+        return "tag-subject";
+      }
+      // 格式相关标签
+      else if (
+        tag.includes("PDF") ||
+        tag.includes("PPT") ||
+        tag.includes("Word") ||
+        tag.includes("Excel") ||
+        tag.includes("视频")
+      ) {
+        return "tag-format";
+      }
+      // 默认样式
+      return "tag-default";
+    };
+
+    // 为不同类型的标签提供图标
+    const getTagIcon = (tag) => {
+      // 主题相关标签
+      if (
+        tag.includes("主义") ||
+        tag.includes("精神") ||
+        tag.includes("价值观") ||
+        tag.includes("伦理")
+      ) {
+        return "🔮";
+      }
+      // 学科相关标签
+      else if (
+        tag.includes("计算机") ||
+        tag.includes("网络") ||
+        tag.includes("人工智能") ||
+        tag.includes("数据") ||
+        tag.includes("结构") ||
+        tag.includes("工程")
+      ) {
+        return "📚";
+      }
+      // 格式相关标签
+      else if (
+        tag.includes("PDF") ||
+        tag.includes("PPT") ||
+        tag.includes("Word") ||
+        tag.includes("Excel") ||
+        tag.includes("视频")
+      ) {
+        return "📄";
+      }
+      // 默认图标
+      return "🏷️";
+    };
+
+    // 处理标签数据，确保是数组格式
+    const parseResourceTags = (tags) => {
+      if (!tags) return [];
+
+      // 如果已经是数组格式
+      if (Array.isArray(tags)) {
+        return tags
+          .map((tag) => {
+            return tag.replace(/["'\[\]]/g, "").trim();
+          })
+          .filter((tag) => tag);
+      }
+
+      // 如果是JSON格式字符串，解析为数组
+      try {
+        const parsedTags = JSON.parse(tags);
+        if (Array.isArray(parsedTags)) {
+          return parsedTags
+            .map((tag) => tag.replace(/["'\[\]]/g, "").trim())
+            .filter((tag) => tag);
+        }
+      } catch (e) {
+        // 解析JSON失败，尝试其他方式
+      }
+
+      // 如果是逗号分隔的字符串，转换为数组
+      if (typeof tags === "string") {
+        return tags
+          .split(",")
+          .map((tag) => tag.replace(/["'\[\]]/g, "").trim())
+          .filter((tag) => tag);
+      }
+
+      // 其他情况返回空数组
+      return [];
+    };
+
     onMounted(() => {
       fetchTags();
+      loadResourceTypes().then(() => {
+        // 设置默认类型为第一个类型
+        if (resourceTypes.value.length > 0) {
+          resourceForm.type = resourceTypes.value[0];
+        }
+      });
+      fetchResources();
     });
 
     return {
@@ -614,14 +962,29 @@ export default {
       approveResource,
       rejectResource,
       confirmDelete,
-      deleteResource,
+      deleteResource: deleteResourceItem,
       handleFileUpload,
       submitResourceForm,
       closeModal,
       availableTags,
+      filteredTags,
       selectedTags,
+      popularTags,
+      currentTagFilter,
+      filterTagsByType,
+      addTag,
       getTagTypeClass,
       getTagTypeLabel,
+      getTagClass,
+      getTagIcon,
+      parseResourceTags,
+      resourceTypes,
+      handleDownload,
+      handlePageChange,
+      handleSizeChange,
+      isLoading,
+      total,
+      pageSize,
     };
   },
 };
@@ -657,6 +1020,15 @@ export default {
   outline: none;
 }
 
+.search-btn {
+  padding: 0.5rem 1rem;
+  background-color: #409eff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
 .add-btn {
   padding: 0.5rem 1rem;
   background-color: #1890ff;
@@ -671,6 +1043,17 @@ export default {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   background-color: #fff;
+  min-height: 200px;
+  position: relative;
+}
+
+.no-data {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #999;
+  font-size: 14px;
 }
 
 .resource-table {
@@ -791,21 +1174,6 @@ export default {
   justify-content: center;
   align-items: center;
   margin-top: 1.5rem;
-  gap: 1rem;
-}
-
-.pagination button {
-  padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background-color: white;
-  cursor: pointer;
-}
-
-.pagination button:disabled {
-  background-color: #f5f5f5;
-  color: #999;
-  cursor: not-allowed;
 }
 
 /* 弹窗样式 */
@@ -930,6 +1298,8 @@ export default {
 
 .detail-value.description {
   white-space: pre-line;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .detail-value.tags {
@@ -939,25 +1309,155 @@ export default {
 }
 
 .tag {
-  display: inline-block;
-  padding: 0.2rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
   background-color: #f5f5f5;
   color: #666;
-  border-radius: 4px;
+  border-radius: 16px;
   font-size: 0.8rem;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.download-link {
+.tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+}
+
+.tag-icon {
+  margin-right: 4px;
+  font-size: 0.9rem;
+}
+
+.tag-theme {
+  background-color: #f6ffed;
+  color: #52c41a;
+  border-color: #b7eb8f;
+}
+
+.tag-subject {
+  background-color: #e6f7ff;
   color: #1890ff;
-  text-decoration: none;
+  border-color: #91d5ff;
 }
 
-.download-link:hover {
-  text-decoration: underline;
+.tag-format {
+  background-color: #fff7e6;
+  color: #fa8c16;
+  border-color: #ffd591;
+}
+
+.tag-default {
+  background-color: #f5f5f5;
+  color: #666;
+  border-color: #d9d9d9;
+}
+
+.download-btn {
+  color: white;
+  background-color: #1890ff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.download-btn:hover {
+  background-color: #40a9ff;
 }
 
 .tag-select-container {
   width: 100%;
+  margin-bottom: 10px;
+}
+
+.tag-quick-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 0.9rem;
+  color: #666;
+  margin-right: 6px;
+}
+
+.filter-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  background-color: #f0f0f0;
+  color: #666;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-tag:hover {
+  background-color: #e0e0e0;
+}
+
+.filter-tag.active {
+  background-color: #1890ff;
+  color: white;
+}
+
+.popular-tags {
+  margin-bottom: 12px;
+}
+
+.popular-tags-title {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.popular-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.popular-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px dashed;
+}
+
+.popular-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.popular-tag.success {
+  background-color: #f6ffed;
+  color: #52c41a;
+  border-color: #b7eb8f;
+}
+
+.popular-tag.primary {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  border-color: #91d5ff;
+}
+
+.popular-tag.warning {
+  background-color: #fff7e6;
+  color: #fa8c16;
+  border-color: #ffd591;
 }
 
 .tag-type-indicator {

@@ -30,6 +30,13 @@ public class UserService {
     public List<User> findAll() {
         return userMapper.findAll();
     }
+    
+    /**
+     * 根据角色查找用户
+     */
+    public List<User> findByRole(String role) {
+        return userMapper.findByRole(role);
+    }
 
     /**
      * 保存用户（新增或更新）

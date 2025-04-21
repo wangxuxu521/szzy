@@ -70,6 +70,11 @@ export default {
         icon: "🎓",
       },
       {
+        title: "类型管理",
+        path: "/admin/type-management",
+        icon: "🔍",
+      },
+      {
         title: "统计分析",
         path: "/admin/statistics",
         icon: "📈",

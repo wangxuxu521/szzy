@@ -35,7 +35,8 @@ export default [
       {
         path: "resource-management",
         name: "ResourceManagement",
-        component: () => import("@/views/ResourceManagement.vue"),
+        component: () =>
+          import("@/views/admin/components/ResourceManagement.vue"),
         meta: {
           title: "资源管理",
           requiresAuth: true,
@@ -55,7 +56,8 @@ export default [
       {
         path: "course-management",
         name: "CourseManagement",
-        component: () => import("@/views/CourseManagement.vue"),
+        component: () =>
+          import("@/views/admin/components/CourseManagement.vue"),
         meta: {
           title: "课程管理",
           requiresAuth: true,
@@ -63,9 +65,20 @@ export default [
         },
       },
       {
+        path: "type-management",
+        name: "TypeManagement",
+        component: () => import("@/views/admin/components/TypeManagement.vue"),
+        meta: {
+          title: "类型管理",
+          requiresAuth: true,
+          roles: ["admin"],
+        },
+      },
+      {
         path: "statistics",
         name: "StatisticsAnalysis",
-        component: () => import("@/views/StatisticsAnalysis.vue"),
+        component: () =>
+          import("@/views/admin/components/StatisticsAnalysis.vue"),
         meta: {
           title: "统计分析",
           requiresAuth: true,
@@ -75,7 +88,7 @@ export default [
       {
         path: "system-settings",
         name: "SystemSettings",
-        component: () => import("@/views/SystemSettings.vue"),
+        component: () => import("@/views/admin/components/SystemSettings.vue"),
         meta: {
           title: "系统设置",
           requiresAuth: true,

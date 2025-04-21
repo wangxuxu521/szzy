@@ -142,4 +142,27 @@ public class ResourceService {
             return allResources;
         }
     }
+    
+    /**
+     * 获取所有资源类型
+     * @return 所有不同的资源类型列表
+     */
+    public List<String> findAllTypes() {
+        try {
+            return resourceMapper.findAllTypes();
+        } catch (Exception e) {
+            // 如果mapper中尚未实现该方法，使用内存去重
+            List<Resource> allResources = resourceMapper.findAll();
+            List<String> types = new ArrayList<>();
+            
+            for (Resource resource : allResources) {
+                String type = resource.getType();
+                if (type != null && !type.isEmpty() && !types.contains(type)) {
+                    types.add(type);
+                }
+            }
+            
+            return types;
+        }
+    }
 } 

@@ -95,6 +95,14 @@ export function checkPreviewSupport(id, fileName) {
   });
 }
 
+// 获取资源类型列表
+export function getResourceTypes() {
+  return request({
+    url: "/resources/types",
+    method: "get",
+  });
+}
+
 // 根据扩展名获取文件类型 - 仅作为备用方案
 function getFileTypeFromExtension(extension) {
   if (["pdf"].includes(extension)) {

@@ -11,9 +11,9 @@
         />
         <select v-model="resourceTypeFilter">
           <option value="">所有类型</option>
-          <option value="教学资源">教学资源</option>
-          <option value="教学案例">教学案例</option>
-          <option value="研究成果">研究成果</option>
+          <option v-for="type in resourceTypes" :key="type" :value="type">
+            {{ type }}
+          </option>
         </select>
       </div>
       <button
@@ -69,10 +69,12 @@
           <p class="card-desc">{{ truncateText(resource.description, 80) }}</p>
           <div class="card-tags">
             <span
-              v-for="(tag, tagIndex) in resource.tags"
+              v-for="(tag, tagIndex) in parseResourceTags(resource.tags)"
               :key="tagIndex"
               class="tag"
+              :class="getTagClass(tag)"
             >
+              <span class="tag-icon">{{ getTagIcon(tag) }}</span>
               {{ tag }}
             </span>
           </div>
@@ -138,9 +140,9 @@
             <div class="form-group">
               <label>类型 <span class="required">*</span></label>
               <select v-model="resourceForm.type" required>
-                <option value="教学资源">教学资源</option>
-                <option value="教学案例">教学案例</option>
-                <option value="研究成果">研究成果</option>
+                <option v-for="type in resourceTypes" :key="type" :value="type">
+                  {{ type }}
+                </option>
               </select>
             </div>
             <div class="form-group">
@@ -271,15 +273,18 @@
             <div class="detail-label">标签</div>
             <div class="detail-value tags">
               <span
-                v-for="(tag, index) in selectedResource.tags"
+                v-for="(tag, index) in parseResourceTags(selectedResource.tags)"
                 :key="index"
                 class="tag"
+                :class="getTagClass(tag)"
               >
+                <span class="tag-icon">{{ getTagIcon(tag) }}</span>
                 {{ tag }}
               </span>
               <span
                 v-if="
-                  !selectedResource.tags || selectedResource.tags.length === 0
+                  !selectedResource.tags ||
+                  parseResourceTags(selectedResource.tags).length === 0
                 "
               >
                 无标签
@@ -401,6 +406,7 @@ import {
   searchResources,
   getResourcePreviewUrl,
   checkPreviewSupport,
+  getResourceTypes,
 } from "@/api/resource";
 import { getTagList } from "@/api/tag";
 
@@ -468,7 +474,7 @@ export default {
     const resourceForm = reactive({
       id: null,
       title: "",
-      type: "教学资源",
+      type: "",
       description: "",
       tags: "",
       file: null,
@@ -484,6 +490,33 @@ export default {
     const showFilePreview = ref(false);
     const previewResource = ref({});
     const previewUrl = ref("");
+
+    // 资源类型
+    const resourceTypes = ref([]);
+
+    // 加载资源类型
+    const loadResourceTypes = async () => {
+      try {
+        const response = await getResourceTypes();
+        // 兼容不同的响应格式
+        if (response && typeof response === "object") {
+          if (Array.isArray(response)) {
+            resourceTypes.value = response;
+          } else if (response.data && Array.isArray(response.data)) {
+            resourceTypes.value = response.data;
+          }
+        }
+
+        // 如果没有获取到类型数据或数据为空，使用默认类型
+        if (!resourceTypes.value || resourceTypes.value.length === 0) {
+          resourceTypes.value = ["计算机", "通信", "人工智能"];
+        }
+      } catch (error) {
+        console.error("获取资源类型失败:", error);
+        // 使用默认类型
+        resourceTypes.value = ["计算机", "通信", "人工智能"];
+      }
+    };
 
     // 获取标签列表
     const fetchTags = async () => {
@@ -595,6 +628,8 @@ export default {
     // 加载资源数据
     const loadResources = async () => {
       loading.value = true;
+      error.value = null;
+
       try {
         console.log("开始加载资源列表...");
         const response = await getResourceList();
@@ -616,6 +651,13 @@ export default {
         }
 
         console.log("处理后的资源列表:", resources.value);
+
+        // 处理每个资源的标签，清除标点符号
+        resources.value.forEach((resource) => {
+          if (resource.tags) {
+            resource.tags = parseResourceTags(resource.tags);
+          }
+        });
 
         // 如果没有资源，添加测试数据（开发阶段使用）
         if (resources.value.length === 0) {
@@ -683,12 +725,29 @@ export default {
 
     // 获取类型样式类
     const getTypeClass = (type) => {
-      const typeMap = {
-        教学资源: "resource",
-        教学案例: "case",
-        研究成果: "research",
-      };
-      return typeMap[type] || "";
+      // 创建一个颜色映射对象
+      const typeMap = {};
+
+      // 动态生成类型映射
+      if (resourceTypes.value && resourceTypes.value.length > 0) {
+        // 预定义的一些样式类
+        const styleClasses = [
+          "resource",
+          "case",
+          "research",
+          "custom1",
+          "custom2",
+        ];
+
+        resourceTypes.value.forEach((type, index) => {
+          // 循环使用预定义样式类，如果样式类不够用，则使用默认样式
+          const styleIndex = index % styleClasses.length;
+          typeMap[type] = styleClasses[styleIndex];
+        });
+      }
+
+      // 如果找不到对应的样式类，返回默认样式
+      return typeMap[type] || "default";
     };
 
     // 截断文本
@@ -791,8 +850,13 @@ export default {
         formData.append("type", resourceForm.type);
         formData.append("description", resourceForm.description);
 
-        // 使用selectedTags而不是resourceForm.tags
-        formData.append("tags", JSON.stringify(selectedTags.value));
+        // 清除标签中的标点符号
+        const cleanedTags = selectedTags.value
+          .map((tag) => tag.replace(/["'\[\]]/g, "").trim())
+          .filter((tag) => tag);
+
+        // 使用处理过的标签
+        formData.append("tags", JSON.stringify(cleanedTags));
 
         if (resourceForm.file) {
           formData.append("file", resourceForm.file);
@@ -870,7 +934,7 @@ export default {
       // 重置表单
       resourceForm.id = null;
       resourceForm.title = "";
-      resourceForm.type = "教学资源";
+      resourceForm.type = "";
       resourceForm.description = "";
       resourceForm.tags = "";
       resourceForm.file = null;
@@ -975,10 +1039,114 @@ export default {
       previewUrl.value = "";
     };
 
+    // 根据标签内容确定标签类型和样式
+    const getTagClass = (tag) => {
+      // 主题相关标签
+      if (
+        tag.includes("主义") ||
+        tag.includes("精神") ||
+        tag.includes("价值观") ||
+        tag.includes("伦理")
+      ) {
+        return "tag-theme";
+      }
+      // 学科相关标签
+      else if (
+        tag.includes("计算机") ||
+        tag.includes("网络") ||
+        tag.includes("人工智能") ||
+        tag.includes("数据") ||
+        tag.includes("结构") ||
+        tag.includes("工程")
+      ) {
+        return "tag-subject";
+      }
+      // 格式相关标签
+      else if (
+        tag.includes("PDF") ||
+        tag.includes("PPT") ||
+        tag.includes("Word") ||
+        tag.includes("Excel") ||
+        tag.includes("视频")
+      ) {
+        return "tag-format";
+      }
+      // 默认样式
+      return "tag-default";
+    };
+
+    // 为不同类型的标签提供图标
+    const getTagIcon = (tag) => {
+      // 主题相关标签
+      if (
+        tag.includes("主义") ||
+        tag.includes("精神") ||
+        tag.includes("价值观") ||
+        tag.includes("伦理")
+      ) {
+        return "🔮";
+      }
+      // 学科相关标签
+      else if (
+        tag.includes("计算机") ||
+        tag.includes("网络") ||
+        tag.includes("人工智能") ||
+        tag.includes("数据") ||
+        tag.includes("结构") ||
+        tag.includes("工程")
+      ) {
+        return "📚";
+      }
+      // 格式相关标签
+      else if (
+        tag.includes("PDF") ||
+        tag.includes("PPT") ||
+        tag.includes("Word") ||
+        tag.includes("Excel") ||
+        tag.includes("视频")
+      ) {
+        return "📄";
+      }
+      // 默认图标
+      return "🏷️";
+    };
+
+    // 处理标签数据，确保是数组格式
+    const parseResourceTags = (tags) => {
+      if (!tags) return [];
+
+      // 如果已经是数组格式，处理每个标签去除标点符号
+      if (Array.isArray(tags)) {
+        return tags
+          .map((tag) => {
+            // 去除引号、方括号等标点符号
+            return tag.replace(/["'\[\]]/g, "").trim();
+          })
+          .filter((tag) => tag);
+      }
+
+      // 如果是逗号分隔的字符串，转换为数组
+      if (typeof tags === "string") {
+        return tags
+          .split(",")
+          .map((tag) => tag.replace(/["'\[\]]/g, "").trim())
+          .filter((tag) => tag);
+      }
+
+      // 其他情况返回空数组
+      return [];
+    };
+
     // 组件挂载时加载资源和标签列表
     onMounted(() => {
       loadResources();
       fetchTags();
+      loadResourceTypes().then(() => {
+        // 设置默认类型为第一个类型
+        if (resourceTypes.value.length > 0) {
+          resourceForm.type = resourceTypes.value[0];
+        }
+      });
     });
 
     return {
@@ -1029,6 +1197,10 @@ export default {
       getFileType,
       showPreview,
       closeFilePreview,
+      getTagClass,
+      getTagIcon,
+      parseResourceTags,
+      resourceTypes,
     };
   },
 };
@@ -1095,11 +1267,48 @@ export default {
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 0.2rem 0.5rem;
   background-color: #f5f5f5;
   color: #666;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border-radius: 16px;
   font-size: 0.8rem;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+}
+
+.tag-icon {
+  margin-right: 4px;
+  font-size: 0.9rem;
+}
+
+.tag-theme {
+  background-color: #f6ffed;
+  color: #52c41a;
+  border-color: #b7eb8f;
+}
+
+.tag-subject {
+  background-color: #e6f7ff;
+  color: #1890ff;
+  border-color: #91d5ff;
+}
+
+.tag-format {
+  background-color: #fff7e6;
+  color: #fa8c16;
+  border-color: #ffd591;
+}
+
+.tag-default {
+  background-color: #f5f5f5;
+  color: #666;
+  border-color: #d9d9d9;
 }
 
 .remove-filter {
@@ -1225,7 +1434,7 @@ export default {
 .card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
   margin-bottom: 1rem;
 }
 

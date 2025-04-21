@@ -53,6 +53,10 @@
         LIMIT #{limit}
     </select>
 
+    <select id="findAllTypes" resultType="java.lang.String">
+        SELECT DISTINCT type FROM resource WHERE type IS NOT NULL AND type != ''
+    </select>
+
     <insert id="insert" parameterType="com.example.springboot.entity.Resource" useGeneratedKeys="true" keyProperty="resourceId">
         INSERT INTO resource(
             title, description, file_path, file_name, file_size, format, 
