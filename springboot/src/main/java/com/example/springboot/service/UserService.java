@@ -1,11 +1,14 @@
 package com.example.springboot.service;
 
 import com.example.springboot.entity.User;
+import com.example.springboot.entity.UserAction;
 import com.example.springboot.mapper.UserMapper;
+import com.example.springboot.mapper.UserActionMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
@@ -13,6 +16,9 @@ import java.util.List;
 public class UserService {
     @Autowired
     private UserMapper userMapper;
+    
+    @Autowired
+    private UserActionMapper userActionMapper;
     
     // 密码加密器
     private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -115,5 +121,50 @@ public class UserService {
         
         System.out.println("登录失败: 用户名或密码错误");
         return null;
+    }
+
+    /**
+     * 获取用户总数
+     * @return 用户总数
+     */
+    public int countTotalUsers() {
+        try {
+            return userMapper.countTotal();
+        } catch (Exception e) {
+            // 如果mapper中尚未实现该方法，使用内存计数
+            List<User> allUsers = userMapper.findAll();
+            return allUsers.size();
+        }
+    }
+    
+    /**
+     * 获取今日活跃用户数
+     * @return 今日活跃用户数
+     */
+    public int countActiveUsers() {
+        try {
+            return userActionMapper.countTodayActiveUsers();
+        } catch (Exception e) {
+            // 如果mapper中尚未实现该方法，使用内存过滤
+            List<UserAction> allActions = userActionMapper.findAll();
+            
+            // 获取今天的日期（不包含时间）
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            String today = dateFormat.format(new Date());
+            
+            // 用于记录今日活跃的用户ID
+            java.util.Set<Integer> activeUsers = new java.util.HashSet<>();
+            
+            for (UserAction action : allActions) {
+                if (action.getActionTime() != null) {
+                    String actionDate = dateFormat.format(action.getActionTime());
+                    if (today.equals(actionDate) && action.getUserId() != null) {
+                        activeUsers.add(action.getUserId());
+                    }
+                }
+            }
+            
+            return activeUsers.size();
+        }
     }
 } 

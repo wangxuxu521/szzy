@@ -5,6 +5,7 @@ import com.example.springboot.entity.Resource;
 import com.example.springboot.entity.UserAction;
 import com.example.springboot.service.ResourceService;
 import com.example.springboot.service.UserActionService;
+import com.example.springboot.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +15,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 系统统计控制器
+ */
 @RestController
 @RequestMapping("/statistics")
 public class StatisticsController {
@@ -23,6 +27,48 @@ public class StatisticsController {
     
     @Autowired
     private UserActionService userActionService;
+    
+    @Autowired
+    private UserService userService;
+    
+    /**
+     * 获取系统摘要统计数据
+     */
+    @GetMapping("/summary")
+    public Result getSystemSummary() {
+        Map<String, Object> summary = new HashMap<>();
+        
+        // 获取资源总数
+        int totalResources = resourceService.countTotalResources();
+        summary.put("totalResources", totalResources);
+        
+        // 获取今日新增资源数
+        int todayResources = resourceService.countTodayResources();
+        summary.put("todayResources", todayResources);
+        
+        // 获取用户总数
+        int totalUsers = userService.countTotalUsers();
+        summary.put("totalUsers", totalUsers);
+        
+        // 获取今日活跃用户数
+        int activeUsers = userService.countActiveUsers();
+        summary.put("activeUsers", activeUsers);
+        
+        // 获取总下载次数
+        int totalDownloads = resourceService.countTotalDownloads();
+        summary.put("totalDownloads", totalDownloads);
+        
+        return Result.success(summary);
+    }
+    
+    /**
+     * 获取资源类型统计
+     */
+    @GetMapping("/resource-type-count")
+    public Result getResourceTypeCount() {
+        Map<String, Integer> typeCounts = resourceService.countResourceByType();
+        return Result.success(typeCounts);
+    }
     
     @GetMapping("/resource-count")
     public Result getResourceCount() {

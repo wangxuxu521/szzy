@@ -3,8 +3,10 @@ package com.example.springboot.mapper;
 import com.example.springboot.entity.Resource;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface ResourceMapper {
@@ -34,4 +36,32 @@ public interface ResourceMapper {
      * @return 资源类型列表
      */
     List<String> findAllTypes();
+    
+    /**
+     * 获取资源总数
+     * @return 资源总数
+     */
+    @Select("SELECT COUNT(*) FROM resource")
+    int countTotal();
+    
+    /**
+     * 获取今日新增资源数
+     * @return 今日新增资源数
+     */
+    @Select("SELECT COUNT(*) FROM resource WHERE DATE(upload_time) = CURDATE()")
+    int countTodayResources();
+    
+    /**
+     * 获取资源总下载次数
+     * @return 总下载次数
+     */
+    @Select("SELECT COALESCE(SUM(download_count), 0) FROM resource")
+    int countTotalDownloads();
+    
+    /**
+     * 获取资源类型统计
+     * @return 资源类型及对应的资源数量
+     */
+    @Select("SELECT type, COUNT(*) as count FROM resource GROUP BY type")
+    Map<String, Integer> countResourceByType();
 } 

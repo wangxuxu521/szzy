@@ -3,6 +3,7 @@ package com.example.springboot.mapper;
 import com.example.springboot.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
 @Mapper
@@ -41,4 +42,11 @@ public interface UserMapper {
      * 删除用户
      */
     void delete(Integer userId);
+    
+    /**
+     * 获取用户总数
+     * @return 用户总数
+     */
+    @Select("SELECT COUNT(*) FROM user")
+    int countTotal();
 } 

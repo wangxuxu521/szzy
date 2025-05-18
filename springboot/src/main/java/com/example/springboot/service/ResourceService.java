@@ -5,8 +5,12 @@ import com.example.springboot.mapper.ResourceMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ResourceService {
@@ -163,6 +167,94 @@ public class ResourceService {
             }
             
             return types;
+        }
+    }
+    
+    /**
+     * 获取资源总数
+     * @return 资源总数
+     */
+    public int countTotalResources() {
+        try {
+            return resourceMapper.countTotal();
+        } catch (Exception e) {
+            // 如果mapper中尚未实现该方法，使用内存计数
+            List<Resource> allResources = resourceMapper.findAll();
+            return allResources.size();
+        }
+    }
+    
+    /**
+     * 获取今日新增资源数
+     * @return 今日新增资源数
+     */
+    public int countTodayResources() {
+        try {
+            return resourceMapper.countTodayResources();
+        } catch (Exception e) {
+            // 如果mapper中尚未实现该方法，使用内存过滤
+            List<Resource> allResources = resourceMapper.findAll();
+            int count = 0;
+            
+            // 获取今天的日期（不包含时间）
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+            String today = dateFormat.format(new Date());
+            
+            for (Resource resource : allResources) {
+                if (resource.getUploadTime() != null) {
+                    String uploadDate = dateFormat.format(resource.getUploadTime());
+                    if (today.equals(uploadDate)) {
+                        count++;
+                    }
+                }
+            }
+            
+            return count;
+        }
+    }
+    
+    /**
+     * 获取资源总下载次数
+     * @return 总下载次数
+     */
+    public int countTotalDownloads() {
+        try {
+            return resourceMapper.countTotalDownloads();
+        } catch (Exception e) {
+            // 如果mapper中尚未实现该方法，使用内存计算
+            List<Resource> allResources = resourceMapper.findAll();
+            int totalDownloads = 0;
+            
+            for (Resource resource : allResources) {
+                if (resource.getDownloadCount() != null) {
+                    totalDownloads += resource.getDownloadCount();
+                }
+            }
+            
+            return totalDownloads;
+        }
+    }
+    
+    /**
+     * 获取资源类型统计
+     * @return 资源类型及对应的资源数量
+     */
+    public Map<String, Integer> countResourceByType() {
+        try {
+            return resourceMapper.countResourceByType();
+        } catch (Exception e) {
+            // 如果mapper中尚未实现该方法，使用内存计算
+            List<Resource> allResources = resourceMapper.findAll();
+            Map<String, Integer> typeCounts = new HashMap<>();
+            
+            for (Resource resource : allResources) {
+                String type = resource.getType();
+                if (type != null && !type.isEmpty()) {
+                    typeCounts.put(type, typeCounts.getOrDefault(type, 0) + 1);
+                }
+            }
+            
+            return typeCounts;
         }
     }
 } 
