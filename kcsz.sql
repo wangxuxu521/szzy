@@ -34,9 +34,16 @@ CREATE TABLE `course` (
   KEY `idx_teacher_id` (`teacher_id`),
   CONSTRAINT `fk_course_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `user` (`user_id`),
   CONSTRAINT `fk_course_type` FOREIGN KEY (`type_id`) REFERENCES `type` (`type_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 /*Data for the table `course` */
+
+insert  into `course`(`course_id`,`course_name`,`description`,`type_id`,`teacher_id`,`create_time`,`status`,`cover_image`) values 
+(1,'计算机技术','计算机技术',1,2,'2025-04-21 15:31:35',1,NULL),
+(2,'通信技术',NULL,2,2,'2025-04-21 15:41:10',1,'uploads/courses/1c246b5b-d81b-4246-ae18-0a8ed4d01ac0.png'),
+(3,'计算机网络基础','本课程介绍计算机网络的基础知识和原理',1,2,'2025-04-21 15:43:01',1,NULL),
+(4,'人工智能导论','介绍人工智能的基本概念和应用',3,5,'2025-04-21 15:43:01',1,NULL),
+(5,'通信原理','通信系统的基本原理与设计方法',2,11,'2025-04-21 15:43:01',1,NULL);
 
 /*Table structure for table `resource` */
 
@@ -61,22 +68,14 @@ CREATE TABLE `resource` (
   PRIMARY KEY (`resource_id`),
   KEY `uploader_id` (`uploader_id`),
   CONSTRAINT `resource_ibfk_1` FOREIGN KEY (`uploader_id`) REFERENCES `user` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 /*Data for the table `resource` */
 
 insert  into `resource`(`resource_id`,`title`,`description`,`file_path`,`format`,`upload_time`,`download_count`,`rating`,`uploader_id`,`review_status`,`file_name`,`file_size`,`view_count`,`type`,`tags`) values 
-(1,'思政课程资源1','这是一个关于思政的课程资源','/resources/course1.pdf','PDF','2025-04-19 18:31:11',2,0,2,'approved','course1.pdf',NULL,0,'计算机','[\"爱国主义\",\"工科\",\"PDF\"]'),
-(2,'思政课程资源2','另一个思政课程资源','/resources/course2.mp4','MP4','2025-04-19 18:31:11',0,0,2,'approved','course2.mp4',NULL,1,'计算机','[\"工科\",\"PDF\",\"爱国教育\"]'),
 (3,'123456','adfsd','uploads/resources/9a4cf6be-a85a-4096-b225-32ec65f132db.pdf','.pdf','2025-04-20 21:36:40',2,0,1,'approved','基于B_S的思政课程资源共享平台设计与实现_孙媛媛.pdf',190971,4,'计算机','[\"工科\",\"PDF\",\"爱国教育\"]'),
-(4,'shiping','dsaff','uploads/resources/3e667b40-d8d7-4724-be5c-e4ce704cb681.mp4','.mp4','2025-04-20 22:02:26',8,0,1,'approved','1.mp4',5478601,6,'计算机','[\"工科\",\"PDF\",\"爱国教育\"]'),
-(5,'dfasd','dsaf','uploads/resources/a4381347-0ca1-4c38-b248-cbd9a8f50a1f.mp4','.mp4','2025-04-20 23:42:38',1,0,1,'approved','11650702040740.mp4',5478601,3,'计算机','[\"工科\",\"PDF\",\"爱国教育\"]'),
-(6,'shipingziyaun','dsaf','uploads/resources/14aaba27-5031-488f-9f87-1b485bad85f0.mp4','.mp4','2025-04-21 01:55:45',1,0,1,'approved','21650702318642.mp4',3894184,3,'计算机','[\"工科\",\"PDF\",\"爱国教育\"]'),
-(7,'tupian','asdf','uploads/resources/73bb1399-04fd-4df6-8c82-2e966b39aa93.jpg','.jpg','2025-04-21 02:03:10',10,0,1,'approved','gaoxiaodongtai12.jpg',29168,10,'计算机','[\"工科\",\"PDF\",\"爱国教育\"]'),
-(8,'图片','122','uploads/resources/82409604-a467-49db-a68d-04db6ca8e442.jpg','.jpg','2025-04-21 03:05:24',0,0,1,'pending','gaoxiaodongtai12.jpg',29168,5,'通信','[\"计算机\",\"爱国主义\"]'),
-(9,'word','dad','uploads/resources/82caec11-eabd-4f08-9ad9-c14cb4845fdc.docx','.docx','2025-04-21 03:09:57',1,0,1,'pending','开题报告模板.docx',21088,2,'通信','[\"爱国主义\"]'),
-(10,'doc','dsa','uploads/resources/26227a1c-444f-4908-81d2-c2d69c99145c.docx','.docx','2025-04-21 03:10:56',2,0,1,'pending','开题报告模板.docx',21088,10,'通信','[\"计算机\"]'),
-(11,'PDf','sadf','uploads/resources/7c8db2d8-3e20-450b-8831-8022bbc5fe2c.pdf','.pdf','2025-04-21 03:15:20',0,0,1,'pending','计0219王旭旭_课程思政资源管理系统设计与实现.pdf',177459,7,'通信','[\"PDF\"]');
+(4,'shiping','dsaff','uploads/resources/3e667b40-d8d7-4724-be5c-e4ce704cb681.mp4','.mp4','2025-04-20 22:02:26',8,0,1,'approved','1.mp4',5478601,8,'计算机','[\"工科\",\"PDF\",\"爱国教育\"]'),
+(5,'dfasd','dsaf','uploads/resources/a4381347-0ca1-4c38-b248-cbd9a8f50a1f.mp4','.mp4','2025-04-20 23:42:38',1,0,1,'approved','11650702040740.mp4',5478601,4,'计算机','[\"工科\",\"PDF\",\"爱国教育\"]');
 
 /*Table structure for table `resource_tag` */
 
@@ -94,11 +93,6 @@ CREATE TABLE `resource_tag` (
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 /*Data for the table `resource_tag` */
-
-insert  into `resource_tag`(`id`,`resource_id`,`tag_id`) values 
-(1,1,1),
-(2,1,2),
-(3,1,3);
 
 /*Table structure for table `review` */
 
@@ -119,9 +113,6 @@ CREATE TABLE `review` (
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 /*Data for the table `review` */
-
-insert  into `review`(`review_id`,`resource_id`,`reviewer_id`,`review_time`,`review_opinion`,`review_result`) values 
-(1,1,1,'2025-04-19 18:31:11','审核通过','approved');
 
 /*Table structure for table `tag` */
 
@@ -214,11 +205,30 @@ CREATE TABLE `user_action` (
 
 /*Data for the table `user_action` */
 
-insert  into `user_action`(`action_id`,`user_id`,`resource_id`,`action_type`,`action_time`,`comment_content`) values 
-(1,3,1,'download','2025-04-19 18:31:11',NULL),
-(2,3,1,'comment','2025-04-19 18:31:11','这个资源很有用');
-
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+-- 创建系统配置表
+CREATE TABLE IF NOT EXISTS `system_config` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `config_key` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `config_value` text COLLATE utf8mb4_unicode_ci,
+  `description` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_config_key` (`config_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 插入初始配置
+INSERT INTO `system_config` (`config_key`, `config_value`, `description`) VALUES
+('site_title', '课程思政资源管理系统', '网站标题'),
+('site_description', '为教师和学生提供优质的课程思政资源', '网站描述'),
+('upload_size_limit', '20', '上传文件大小限制(MB)'),
+('allowed_file_types', 'pdf,doc,docx,ppt,pptx,xls,xlsx,txt,jpg,jpeg,png,gif,mp4,mp3,zip,rar', '允许上传的文件类型'),
+('system_announcement', '欢迎使用课程思政资源管理系统', '系统公告'),
+('contact_email', 'admin@example.com', '联系邮箱'),
+('review_required', 'true', '是否需要审核上传的资源'),
+('enable_comments', 'true', '是否启用评论功能'),
+('register_open', 'true', '是否开放注册'); 

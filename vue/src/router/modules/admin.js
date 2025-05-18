@@ -77,8 +77,7 @@ export default [
       {
         path: "statistics",
         name: "StatisticsAnalysis",
-        component: () =>
-          import("@/views/admin/components/StatisticsAnalysis.vue"),
+        component: () => import("@/views/StatisticsAnalysis.vue"),
         meta: {
           title: "统计分析",
           requiresAuth: true,
@@ -88,7 +87,7 @@ export default [
       {
         path: "system-settings",
         name: "SystemSettings",
-        component: () => import("@/views/admin/components/SystemSettings.vue"),
+        component: () => import("@/views/SystemSettings.vue"),
         meta: {
           title: "系统设置",
           requiresAuth: true,

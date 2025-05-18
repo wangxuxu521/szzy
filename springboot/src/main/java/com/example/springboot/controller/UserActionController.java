@@ -1,5 +1,6 @@
 package com.example.springboot.controller;
 
+import com.example.springboot.common.Result;
 import com.example.springboot.entity.UserAction;
 import com.example.springboot.service.UserActionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,13 +25,15 @@ public class UserActionController {
     }
     
     @GetMapping("/user/{userId}")
-    public List<UserAction> findByUserId(@PathVariable Integer userId) {
-        return userActionService.findByUserId(userId);
+    public Result<?> findByUserId(@PathVariable Integer userId) {
+        List<UserAction> actions = userActionService.findByUserId(userId);
+        return Result.success(actions);
     }
     
     @GetMapping("/resource/{resourceId}")
-    public List<UserAction> findByResourceId(@PathVariable Integer resourceId) {
-        return userActionService.findByResourceId(resourceId);
+    public Result<?> findByResourceId(@PathVariable Integer resourceId) {
+        List<UserAction> actions = userActionService.findByResourceId(resourceId);
+        return Result.success(actions);
     }
     
     @GetMapping("/type/{actionType}")
@@ -39,8 +42,9 @@ public class UserActionController {
     }
 
     @PostMapping
-    public void save(@RequestBody UserAction userAction) {
+    public Result<?> save(@RequestBody UserAction userAction) {
         userActionService.save(userAction);
+        return Result.success();
     }
 
     @DeleteMapping("/{id}")
