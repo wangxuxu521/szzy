@@ -70,7 +70,7 @@
 <script>
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
-import ResourceUploadForm from "@/components/resource/ResourceUploadForm.vue";
+import ResourceUploadForm from "@/views/teacher/ResourceUploadForm.vue";
 import { uploadResource } from "@/api/resource";
 import { ElMessage } from "element-plus";
 import axios from "axios";

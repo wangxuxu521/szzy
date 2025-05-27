@@ -2,31 +2,36 @@
   <div class="resource-management">
     <div class="section-header">
       <h2>资源管理</h2>
-      <div class="search-bar">
-        <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="搜索资源..."
-          @keyup.enter="handleSearch"
-        />
-        <el-select
-          v-model="resourceTypeFilter"
-          placeholder="筛选类型"
-          clearable
-        >
-          <el-option value="" label="全部类型" />
-          <el-option
-            v-for="type in resourceTypes"
-            :key="type.typeId"
-            :label="type.typeName"
-            :value="type.typeId"
+      <div class="search-filter-container">
+        <div class="search-bar">
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="搜索资源..."
+            @keyup.enter="handleSearch"
+            class="search-input"
           />
-        </el-select>
-        <button class="search-btn" @click="handleSearch">搜索</button>
+          <el-select
+            v-model="resourceTypeFilter"
+            placeholder="筛选类型"
+            clearable
+            class="type-select"
+            popper-class="resource-type-dropdown"
+          >
+            <el-option value="" label="全部类型" />
+            <el-option
+              v-for="type in resourceTypes"
+              :key="type.typeId"
+              :label="type.typeName"
+              :value="type.typeId"
+            />
+          </el-select>
+          <button class="search-btn" @click="handleSearch">搜索</button>
+        </div>
+        <button class="add-btn" @click="showAddResourceModal = true">
+          上传资源
+        </button>
       </div>
-      <button class="add-btn" @click="showAddResourceModal = true">
-        上传资源
-      </button>
     </div>
 
     <div class="table-container" v-loading="isLoading">
@@ -48,8 +53,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="resource in filteredResources" :key="resource.id">
-            <td>{{ resource.id }}</td>
+          <tr v-for="resource in filteredResources" :key="resource.resourceId">
+            <td>{{ resource.resourceId }}</td>
             <td class="resource-title">{{ resource.title }}</td>
             <td>
               <span class="type-tag" :class="getTypeClass(resource.type)">
@@ -139,9 +144,13 @@
             </div>
             <div class="form-group">
               <label>类型</label>
-              <select v-model="resourceForm.type" required>
-                <option v-for="type in resourceTypes" :key="type" :value="type">
-                  {{ type }}
+              <select v-model="resourceForm.typeId" required>
+                <option
+                  v-for="type in resourceTypes"
+                  :key="type.typeId"
+                  :value="type.typeId"
+                >
+                  {{ type.typeName }}
                 </option>
               </select>
             </div>
@@ -304,9 +313,9 @@
             <div class="detail-value">
               <button
                 class="download-btn"
-                @click="handleDownload(selectedResource.id)"
+                @click="handleDownload(selectedResource.resourceId)"
               >
-                下载文件 {{ selectedResource.filename }}
+                下载文件 {{ selectedResource.fileName }}
               </button>
               <button
                 class="preview-btn"
@@ -345,7 +354,7 @@
     <!-- 资源预览弹窗 -->
     <el-dialog
       v-model="showPreviewModal"
-      :title="previewingResource?.filename || '文件预览'"
+      :title="previewingResource?.fileName || '文件预览'"
       width="80%"
       :before-close="closePreviewModal"
       :close-on-click-modal="false"
@@ -362,10 +371,10 @@
             :closable="false"
             show-icon
           />
-          <p class="mt-3">文件名: {{ previewingResource?.filename }}</p>
+          <p class="mt-3">文件名: {{ previewingResource?.fileName }}</p>
           <el-button
             type="primary"
-            @click="handleDownload(previewingResource.id)"
+            @click="handleDownload(previewingResource.resourceId)"
             class="mt-3"
           >
             下载文件
@@ -392,7 +401,7 @@
           <video controls width="100%">
             <source
               :src="previewUrl"
-              :type="`video/${getFileExtension(previewingResource.filename)}`"
+              :type="`video/${getFileExtension(previewingResource.fileName)}`"
             />
             您的浏览器不支持视频播放
           </video>
@@ -403,7 +412,7 @@
           <audio controls>
             <source
               :src="previewUrl"
-              :type="`audio/${getFileExtension(previewingResource.filename)}`"
+              :type="`audio/${getFileExtension(previewingResource.fileName)}`"
             />
             您的浏览器不支持音频播放
           </audio>
@@ -620,15 +629,14 @@ export default {
         };
 
         // 添加类型ID过滤条件
-        if (resourceTypeFilter.value) {
-          // 如果是数字，则作为typeId处理
-          if (!isNaN(resourceTypeFilter.value)) {
-            params.typeId = resourceTypeFilter.value;
-          }
-          // 否则按传统类型字段过滤
-          else {
-            params.type = resourceTypeFilter.value;
-          }
+        if (
+          resourceTypeFilter.value !== null &&
+          resourceTypeFilter.value !== undefined &&
+          resourceTypeFilter.value !== ""
+        ) {
+          // 确保typeId是数字类型
+          params.typeId = resourceTypeFilter.value;
+          console.log("筛选参数:", params);
         }
 
         const response = await getResourceList(params);
@@ -741,6 +749,7 @@ export default {
 
     // 搜索处理
     const handleSearch = () => {
+      console.log("执行搜索，筛选类型:", resourceTypeFilter.value);
       currentPage.value = 1;
       fetchResources();
     };
@@ -757,9 +766,12 @@ export default {
           "custom2",
         ];
 
-        resourceTypes.value.forEach((type, index) => {
+        resourceTypes.value.forEach((typeObj, index) => {
           const styleIndex = index % styleClasses.length;
-          typeMap[type] = styleClasses[styleIndex];
+          // 支持类型对象和类型名称字符串
+          const typeName =
+            typeof typeObj === "object" ? typeObj.typeName : typeObj;
+          typeMap[typeName] = styleClasses[styleIndex];
         });
       }
       return typeMap[type] || "default";
@@ -783,9 +795,9 @@ export default {
 
     // 编辑资源
     const editResource = (resource) => {
-      resourceForm.id = resource.id;
+      resourceForm.id = resource.resourceId;
       resourceForm.title = resource.title;
-      resourceForm.type = resource.type;
+      resourceForm.typeId = resource.typeId;
       resourceForm.description = resource.description || "";
       selectedTags.value = parseResourceTags(resource.tags);
       showEditResourceModal.value = true;
@@ -888,10 +900,11 @@ export default {
             background: "rgba(255, 255, 255, 0.7)",
           });
 
-          await deleteResource(resourceToDelete.value.id);
+          await deleteResource(resourceToDelete.value.resourceId);
 
           resources.value = resources.value.filter(
-            (resource) => resource.id !== resourceToDelete.value.id
+            (resource) =>
+              resource.resourceId !== resourceToDelete.value.resourceId
           );
 
           ElMessage.success("资源已成功删除");
@@ -923,7 +936,12 @@ export default {
         // 处理下载文件
         const blob = new Blob([response], { type: response.type });
         const link = document.createElement("a");
-        const fileName = selectedResource.value.filename || "download.file";
+        // 使用fileName或fallback到其他可能的字段名
+        const fileName =
+          selectedResource.value.fileName ||
+          selectedResource.value.file_name ||
+          selectedResource.value.filename ||
+          "download.file";
 
         link.href = URL.createObjectURL(blob);
         link.download = fileName;
@@ -946,16 +964,15 @@ export default {
         });
 
         const formData = new FormData();
-        formData.append("title", resourceForm.value.title);
-        formData.append("type", resourceForm.value.type);
+        formData.append("title", resourceForm.title);
 
-        // 如果typeId存在，也添加到表单中
-        if (resourceForm.value.typeId) {
-          formData.append("typeId", resourceForm.value.typeId);
+        // 添加类型ID到表单
+        if (resourceForm.typeId) {
+          formData.append("typeId", resourceForm.typeId);
         }
 
-        if (resourceForm.value.description) {
-          formData.append("description", resourceForm.value.description);
+        if (resourceForm.description) {
+          formData.append("description", resourceForm.description);
         }
 
         // 处理标签
@@ -964,15 +981,15 @@ export default {
         }
 
         // 如果是编辑模式且不上传新文件，则不添加文件字段
-        if (!showEditResourceModal.value && resourceForm.value.file) {
-          formData.append("file", resourceForm.value.file);
+        if (!showEditResourceModal.value && resourceForm.file) {
+          formData.append("file", resourceForm.file);
         }
 
         let result;
         if (showEditResourceModal.value) {
           // 编辑资源
           result = await updateResource(
-            selectedResource.value.resourceId,
+            resourceForm.id || selectedResource.value.resourceId,
             formData
           );
         } else {
@@ -1154,11 +1171,15 @@ export default {
       officePreviewUrl.value = "";
 
       try {
-        // 获取文件扩展名
-        const fileExt = getFileExtension(resource.filename).toLowerCase();
+        // 处理不同的文件名字段
+        const fileName =
+          resource.fileName || resource.file_name || resource.filename || "";
 
-        // 构建预览URL - 修正API路径
-        const baseUrl = `/api/resources/preview/${resource.id}`;
+        // 获取文件扩展名
+        const fileExt = getFileExtension(fileName).toLowerCase();
+
+        // 构建预览URL
+        const baseUrl = `/api/resources/preview/${resource.resourceId}`;
         previewUrl.value = baseUrl;
 
         // 根据文件类型设置预览方式
@@ -1197,7 +1218,7 @@ export default {
           // 修正获取文本内容的API请求
           try {
             const response = await axios.get(
-              `/api/resources/preview/${resource.id}`,
+              `/api/resources/preview/${resource.resourceId}`,
               {
                 headers: {
                   Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -1217,7 +1238,7 @@ export default {
           previewType.value = "office";
           previewSupported.value = true;
           // 修正Office文件预览服务的URL
-          officePreviewUrl.value = `/api/resources/office-preview/${resource.id}`;
+          officePreviewUrl.value = `/api/resources/office-preview/${resource.resourceId}`;
         } else {
           previewSupported.value = false;
         }
@@ -1327,6 +1348,14 @@ export default {
 };
 </script>
 
+<style>
+/* 全局样式，确保下拉菜单正常显示 */
+.resource-type-dropdown {
+  z-index: 3000 !important;
+  min-width: 120px !important;
+}
+</style>
+
 <style scoped>
 .resource-management {
   padding: 1rem 0;
@@ -1337,24 +1366,59 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .section-header h2 {
   margin: 0;
   color: #333;
+  margin-right: 20px;
+}
+
+.search-filter-container {
+  display: flex;
+  gap: 15px;
+  flex: 1;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  min-width: 0;
+  width: 100%;
 }
 
 .search-bar {
   display: flex;
   gap: 10px;
+  flex: 1;
+  max-width: 700px;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
-.search-bar input,
-.search-bar select {
+.search-input {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   outline: none;
+  flex: 1;
+  min-width: 100px;
+}
+
+.type-select {
+  min-width: 120px;
+  width: auto;
+}
+
+/* 确保Element Plus下拉菜单正常显示 */
+:deep(.el-select-dropdown) {
+  z-index: 3000 !important;
+}
+
+:deep(.el-select) {
+  width: auto;
+  min-width: 120px;
 }
 
 .search-btn {
@@ -1364,6 +1428,7 @@ export default {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .add-btn {
@@ -1373,6 +1438,7 @@ export default {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .table-container {
@@ -1972,5 +2038,63 @@ export default {
   cursor: pointer;
   padding: 0.3rem 0.5rem;
   font-size: 0.8rem;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 992px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-header h2 {
+    margin-bottom: 15px;
+  }
+
+  .search-filter-container {
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .search-filter-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .search-bar {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .add-btn {
+    width: 100%;
+  }
+
+  :deep(.el-select),
+  .type-select {
+    max-width: 100%;
+    width: auto;
+    min-width: 120px;
+  }
+}
+
+@media screen and (max-width: 576px) {
+  .search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input,
+  .type-select,
+  .search-btn {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  :deep(.el-select) {
+    width: 100%;
+  }
 }
 </style>

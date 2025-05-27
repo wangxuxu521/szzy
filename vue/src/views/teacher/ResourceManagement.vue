@@ -1,344 +1,353 @@
 <template>
-  <div class="resource-management">
-    <div class="page-header">
-      <h1>资源管理</h1>
-      <div class="header-actions">
+  <div>
+    <AppHeader />
+    <div class="resource-management">
+      <div class="page-header">
+        <h1>资源管理</h1>
+        <div class="header-actions">
+          <el-button type="primary" @click="handleUploadResource"
+            >上传资源</el-button
+          >
+        </div>
+      </div>
+
+      <!-- 搜索和筛选 -->
+      <div class="filter-container">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="搜索资源标题"
+          class="search-input"
+          clearable
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+
+        <el-select
+          v-model="filterType"
+          placeholder="资源类型"
+          clearable
+          @change="handleFilterChange"
+          class="filter-select"
+        >
+          <el-option
+            v-for="type in resourceTypes"
+            :key="type"
+            :label="type"
+            :value="type"
+          />
+        </el-select>
+
+        <el-select
+          v-model="filterStatus"
+          placeholder="审核状态"
+          clearable
+          @change="handleFilterChange"
+          class="filter-select"
+        >
+          <el-option label="待审核" value="pending" />
+          <el-option label="已通过" value="approved" />
+          <el-option label="已拒绝" value="rejected" />
+        </el-select>
+
+        <el-button type="primary" @click="handleSearch">搜索</el-button>
+        <el-button @click="resetFilter">重置</el-button>
+      </div>
+
+      <!-- 资源列表 -->
+      <div v-if="loading" class="loading-container">
+        <el-skeleton :rows="10" animated />
+      </div>
+      <div v-else-if="filteredResources.length === 0" class="empty-container">
+        <el-empty description="暂无资源" />
         <el-button type="primary" @click="handleUploadResource"
-          >上传资源</el-button
+          >上传第一个资源</el-button
         >
       </div>
-    </div>
-
-    <!-- 搜索和筛选 -->
-    <div class="filter-container">
-      <el-input
-        v-model="searchKeyword"
-        placeholder="搜索资源标题"
-        class="search-input"
-        clearable
-        @keyup.enter="handleSearch"
-      >
-        <template #prefix>
-          <el-icon><Search /></el-icon>
-        </template>
-      </el-input>
-
-      <el-select
-        v-model="filterType"
-        placeholder="资源类型"
-        clearable
-        @change="handleFilterChange"
-        class="filter-select"
-      >
-        <el-option
-          v-for="type in resourceTypes"
-          :key="type"
-          :label="type"
-          :value="type"
-        />
-      </el-select>
-
-      <el-select
-        v-model="filterStatus"
-        placeholder="审核状态"
-        clearable
-        @change="handleFilterChange"
-        class="filter-select"
-      >
-        <el-option label="待审核" value="pending" />
-        <el-option label="已通过" value="approved" />
-        <el-option label="已拒绝" value="rejected" />
-      </el-select>
-
-      <el-button type="primary" @click="handleSearch">搜索</el-button>
-      <el-button @click="resetFilter">重置</el-button>
-    </div>
-
-    <!-- 资源列表 -->
-    <div v-if="loading" class="loading-container">
-      <el-skeleton :rows="10" animated />
-    </div>
-    <div v-else-if="filteredResources.length === 0" class="empty-container">
-      <el-empty description="暂无资源" />
-      <el-button type="primary" @click="handleUploadResource"
-        >上传第一个资源</el-button
-      >
-    </div>
-    <div v-else class="resource-list">
-      <el-table :data="filteredResources" border style="width: 100%">
-        <el-table-column label="标题" prop="title" min-width="200">
-          <template #default="{ row }">
-            <div class="resource-title">
-              <span>{{ row.title }}</span>
-              <el-tag v-if="row.type" size="small" class="resource-tag">{{
-                row.type
-              }}</el-tag>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="上传时间" prop="uploadTime" width="150">
-          <template #default="{ row }">
-            {{ formatDate(row.uploadTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="上传者" prop="uploaderName" width="120">
-          <template #default="{ row }">
-            {{ row.uploaderName || "未知用户" }}
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" prop="reviewStatus" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusType(row.reviewStatus)" effect="light">
-              {{ getStatusText(row.reviewStatus) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="浏览/下载" width="120">
-          <template #default="{ row }">
-            {{ row.viewCount || 0 }} / {{ row.downloadCount || 0 }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              type="primary"
-              size="small"
-              @click="handleViewResource(row)"
-            >
-              查看
-            </el-button>
-            <el-button
-              type="primary"
-              size="small"
-              plain
-              @click="handleEditResource(row)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              type="danger"
-              size="small"
-              @click="handleDeleteResource(row)"
-            >
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
-
-    <!-- 资源上传对话框 -->
-    <el-dialog
-      v-model="uploadDialogVisible"
-      title="上传资源"
-      width="600px"
-      append-to-body
-      :close-on-click-modal="false"
-    >
-      <el-form
-        ref="uploadFormRef"
-        :model="uploadForm"
-        :rules="uploadRules"
-        label-width="100px"
-      >
-        <el-form-item label="资源标题" prop="title">
-          <el-input
-            v-model="uploadForm.title"
-            placeholder="请输入资源标题"
-          ></el-input>
-        </el-form-item>
-        <el-form-item label="资源类型" prop="typeId">
-          <el-select
-            v-model="uploadForm.typeId"
-            placeholder="请选择资源类型"
-            style="width: 100%"
-            filterable
-          >
-            <el-option
-              v-for="type in types"
-              :key="type.typeId"
-              :label="type.typeName"
-              :value="type.typeId"
-            ></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="资源描述" prop="description">
-          <el-input
-            v-model="uploadForm.description"
-            type="textarea"
-            rows="3"
-            placeholder="请输入资源描述"
-          ></el-input>
-        </el-form-item>
-        <el-form-item label="标签" prop="tags">
-          <el-select
-            v-model="uploadForm.tags"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            placeholder="请选择或输入标签"
-            style="width: 100%"
-          >
-            <el-option-group label="主题标签">
-              <el-option
-                v-for="tag in themeTagOptions"
-                :key="tag.value"
-                :label="tag.label"
-                :value="tag.value"
-              >
-                <span>{{ tag.label }}</span>
-                <el-tag size="small" type="success">主题</el-tag>
-              </el-option>
-            </el-option-group>
-            <el-option-group label="学科标签">
-              <el-option
-                v-for="tag in subjectTagOptions"
-                :key="tag.value"
-                :label="tag.label"
-                :value="tag.value"
-              >
-                <span>{{ tag.label }}</span>
-                <el-tag size="small" type="primary">学科</el-tag>
-              </el-option>
-            </el-option-group>
-            <el-option-group label="格式标签">
-              <el-option
-                v-for="tag in formatTagOptions"
-                :key="tag.value"
-                :label="tag.label"
-                :value="tag.value"
-              >
-                <span>{{ tag.label }}</span>
-                <el-tag size="small" type="info">格式</el-tag>
-              </el-option>
-            </el-option-group>
-          </el-select>
-          <div class="form-tip">多个标签有助于其他用户更容易找到您的资源</div>
-        </el-form-item>
-        <el-form-item label="资源文件" prop="file">
-          <el-upload
-            class="upload-file"
-            :auto-upload="false"
-            :on-change="handleFileChange"
-            :on-remove="handleFileRemove"
-            :before-remove="confirmRemoveFile"
-            :limit="1"
-            :file-list="fileList"
-            :on-exceed="handleExceed"
-          >
-            <el-button type="primary">选择文件</el-button>
-            <template #tip>
-              <div class="el-upload__tip">
-                支持各种文件格式，单个文件大小不超过{{ maxFileSize }}MB
-                <div v-if="fileInfo.size" class="file-info">
-                  <span class="file-size"
-                    >文件大小: {{ formatFileSize(fileInfo.size) }}</span
-                  >
-                  <span class="file-format">格式: {{ fileInfo.format }}</span>
-                </div>
+      <div v-else class="resource-list">
+        <el-table :data="filteredResources" border style="width: 100%">
+          <el-table-column label="标题" prop="title" min-width="200">
+            <template #default="{ row }">
+              <div class="resource-title">
+                <span>{{ row.title }}</span>
+                <el-tag v-if="row.type" size="small" class="resource-tag">{{
+                  row.type
+                }}</el-tag>
               </div>
             </template>
-          </el-upload>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="uploadDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitUpload" :loading="uploading"
-            >上传</el-button
-          >
-        </span>
-      </template>
-    </el-dialog>
-
-    <!-- 上传进度对话框 -->
-    <el-dialog
-      v-model="showProgressDialog"
-      title="正在上传"
-      width="400px"
-      :close-on-click-modal="false"
-      :show-close="false"
-    >
-      <div class="progress-container">
-        <el-progress
-          :percentage="uploadProgress"
-          :status="progressStatus"
-        ></el-progress>
-        <p class="progress-text">{{ progressText }}</p>
+          </el-table-column>
+          <el-table-column label="上传时间" prop="uploadTime" width="150">
+            <template #default="{ row }">
+              {{ formatDate(row.uploadTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="上传者" prop="uploaderName" width="120">
+            <template #default="{ row }">
+              {{ row.uploaderName || "未知用户" }}
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" prop="reviewStatus" width="100">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.reviewStatus)" effect="light">
+                {{ getStatusText(row.reviewStatus) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="浏览/下载" width="120">
+            <template #default="{ row }">
+              {{ row.viewCount || 0 }} / {{ row.downloadCount || 0 }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                type="primary"
+                size="small"
+                @click="handleViewResource(row)"
+              >
+                查看
+              </el-button>
+              <el-button
+                type="primary"
+                size="small"
+                plain
+                @click="handleEditResource(row)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                @click="handleDeleteResource(row)"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
-    </el-dialog>
 
-    <!-- 资源编辑对话框 -->
-    <el-dialog
-      v-model="editDialogVisible"
-      title="编辑资源"
-      width="600px"
-      append-to-body
-    >
-      <el-form
-        ref="editFormRef"
-        :model="editForm"
-        :rules="editRules"
-        label-width="100px"
+      <!-- 资源上传对话框 -->
+      <el-dialog
+        v-model="uploadDialogVisible"
+        title="上传资源"
+        width="600px"
+        append-to-body
+        :close-on-click-modal="false"
       >
-        <el-form-item label="资源标题" prop="title">
-          <el-input
-            v-model="editForm.title"
-            placeholder="请输入资源标题"
-          ></el-input>
-        </el-form-item>
-        <el-form-item label="资源类型" prop="type">
-          <el-select
-            v-model="editForm.type"
-            placeholder="请选择资源类型"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="type in resourceTypes"
-              :key="type"
-              :label="type"
-              :value="type"
-            ></el-option>
-          </el-select>
-        </el-form-item>
-        <el-form-item label="资源描述" prop="description">
-          <el-input
-            v-model="editForm.description"
-            type="textarea"
-            rows="3"
-            placeholder="请输入资源描述"
-          ></el-input>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="editDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitEdit" :loading="editing"
-            >保存</el-button
-          >
-        </span>
-      </template>
-    </el-dialog>
+        <el-form
+          ref="uploadFormRef"
+          :model="uploadForm"
+          :rules="uploadRules"
+          label-width="100px"
+        >
+          <el-form-item label="资源标题" prop="title">
+            <el-input
+              v-model="uploadForm.title"
+              placeholder="请输入资源标题"
+            ></el-input>
+          </el-form-item>
+          <el-form-item label="资源类型" prop="typeId">
+            <el-select
+              v-model="uploadForm.typeId"
+              placeholder="请选择资源类型"
+              style="width: 100%"
+              filterable
+            >
+              <el-option
+                v-for="type in types"
+                :key="type.typeId"
+                :label="type.typeName"
+                :value="type.typeId"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="资源描述" prop="description">
+            <el-input
+              v-model="uploadForm.description"
+              type="textarea"
+              rows="3"
+              placeholder="请输入资源描述"
+            ></el-input>
+          </el-form-item>
+          <el-form-item label="标签" prop="tags">
+            <el-select
+              v-model="uploadForm.tags"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              placeholder="请选择或输入标签"
+              style="width: 100%"
+            >
+              <el-option-group label="主题标签">
+                <el-option
+                  v-for="tag in themeTagOptions"
+                  :key="tag.value"
+                  :label="tag.label"
+                  :value="tag.value"
+                >
+                  <span>{{ tag.label }}</span>
+                  <el-tag size="small" type="success">主题</el-tag>
+                </el-option>
+              </el-option-group>
+              <el-option-group label="学科标签">
+                <el-option
+                  v-for="tag in subjectTagOptions"
+                  :key="tag.value"
+                  :label="tag.label"
+                  :value="tag.value"
+                >
+                  <span>{{ tag.label }}</span>
+                  <el-tag size="small" type="primary">学科</el-tag>
+                </el-option>
+              </el-option-group>
+              <el-option-group label="格式标签">
+                <el-option
+                  v-for="tag in formatTagOptions"
+                  :key="tag.value"
+                  :label="tag.label"
+                  :value="tag.value"
+                >
+                  <span>{{ tag.label }}</span>
+                  <el-tag size="small" type="info">格式</el-tag>
+                </el-option>
+              </el-option-group>
+            </el-select>
+            <div class="form-tip">多个标签有助于其他用户更容易找到您的资源</div>
+          </el-form-item>
+          <el-form-item label="资源文件" prop="file">
+            <el-upload
+              class="upload-file"
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+              :before-remove="confirmRemoveFile"
+              :limit="1"
+              :file-list="fileList"
+              :on-exceed="handleExceed"
+            >
+              <el-button type="primary">选择文件</el-button>
+              <template #tip>
+                <div class="el-upload__tip">
+                  支持各种文件格式，单个文件大小不超过{{ maxFileSize }}MB
+                  <div v-if="fileInfo.size" class="file-info">
+                    <span class="file-size"
+                      >文件大小: {{ formatFileSize(fileInfo.size) }}</span
+                    >
+                    <span class="file-format">格式: {{ fileInfo.format }}</span>
+                  </div>
+                </div>
+              </template>
+            </el-upload>
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="uploadDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="submitForm" :loading="submitting"
+              >上传</el-button
+            >
+          </span>
+        </template>
+      </el-dialog>
+
+      <!-- 上传进度对话框 -->
+      <el-dialog
+        v-model="showProgressDialog"
+        title="正在上传"
+        width="400px"
+        :close-on-click-modal="false"
+        :show-close="false"
+      >
+        <div class="progress-container">
+          <el-progress
+            :percentage="uploadProgress"
+            :status="progressStatus"
+          ></el-progress>
+          <p class="progress-text">{{ progressText }}</p>
+        </div>
+      </el-dialog>
+
+      <!-- 资源编辑对话框 -->
+      <el-dialog
+        v-model="editDialogVisible"
+        title="编辑资源"
+        width="600px"
+        append-to-body
+      >
+        <el-form
+          ref="editFormRef"
+          :model="editForm"
+          :rules="editRules"
+          label-width="100px"
+        >
+          <el-form-item label="资源标题" prop="title">
+            <el-input
+              v-model="editForm.title"
+              placeholder="请输入资源标题"
+            ></el-input>
+          </el-form-item>
+          <el-form-item label="资源类型" prop="type">
+            <el-select
+              v-model="editForm.type"
+              placeholder="请选择资源类型"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="type in resourceTypes"
+                :key="type"
+                :label="type"
+                :value="type"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="资源描述" prop="description">
+            <el-input
+              v-model="editForm.description"
+              type="textarea"
+              rows="3"
+              placeholder="请输入资源描述"
+            ></el-input>
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="editDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="submitEdit" :loading="editing"
+              >保存</el-button
+            >
+          </span>
+        </template>
+      </el-dialog>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from "vue";
+import { ref, reactive, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Search } from "@element-plus/icons-vue";
-import { getTeacherResources } from "@/api/teacher";
-import { uploadResource, updateResource, deleteResource } from "@/api/resource";
+import {
+  getTeacherResources,
+  uploadTeacherResource,
+  updateTeacherResource,
+  deleteTeacherResource,
+} from "@/api/teacher";
 import { getTagList } from "@/api/tag";
 import { getAllTypes } from "@/api/type";
-import { getSystemConfig } from "@/api/system";
+import { getSystemConfigs } from "@/api/system";
 import axios from "axios";
+import AppHeader from "@/components/common/AppHeader.vue";
 
 export default {
-  name: "ResourceManagement",
+  name: "TeacherResourceManagement",
   components: {
     Search,
+    AppHeader,
   },
   setup() {
     const router = useRouter();
@@ -419,7 +428,7 @@ export default {
       file: [{ required: true, message: "请选择上传文件", trigger: "change" }],
     };
     const fileList = ref([]);
-    const uploading = ref(false);
+    const submitting = ref(false);
     const uploadFormRef = ref(null);
 
     // 编辑对话框
@@ -536,7 +545,7 @@ export default {
     // 加载系统配置
     const loadSystemConfig = async () => {
       try {
-        const response = await getSystemConfig();
+        const response = await getSystemConfigs();
         if (response && response.code === 200 && response.data) {
           const configs = response.data;
 
@@ -705,33 +714,40 @@ export default {
     };
 
     // 删除资源
-    const handleDeleteResource = (resource) => {
-      ElMessageBox.confirm(
-        `确定要删除资源"${resource.title}"吗？`,
-        "删除确认",
-        {
-          confirmButtonText: "确定",
-          cancelButtonText: "取消",
-          type: "warning",
-        }
-      )
-        .then(async () => {
-          try {
-            const res = await deleteResource(resource.resourceId);
-            if (res.code === 200) {
-              ElMessage.success("资源删除成功");
-              fetchResources();
-            } else {
-              ElMessage.error(res.message || "删除失败");
-            }
-          } catch (error) {
-            console.error("删除资源失败:", error);
-            ElMessage.error("删除失败，请稍后重试");
+    const handleDeleteResource = async (resource) => {
+      try {
+        const confirmed = await ElMessageBox.confirm(
+          `确定要删除资源"${resource.title}"吗？此操作不可撤销。`,
+          "删除确认",
+          {
+            confirmButtonText: "确定删除",
+            cancelButtonText: "取消",
+            type: "warning",
           }
-        })
-        .catch(() => {
-          ElMessage.info("已取消删除");
-        });
+        );
+
+        if (confirmed === "confirm") {
+          const loading = ElLoading.service({
+            lock: true,
+            text: "正在删除...",
+            background: "rgba(0, 0, 0, 0.7)",
+          });
+
+          const res = await deleteTeacherResource(resource.resourceId);
+          loading.close();
+
+          if (res && (res.code === 200 || res.code === 0)) {
+            ElMessage.success("资源已成功删除");
+            // 重新获取资源列表
+            fetchResources();
+          } else {
+            ElMessage.error(res?.message || "删除资源失败");
+          }
+        }
+      } catch (error) {
+        console.error("删除资源失败:", error);
+        ElMessage.error("删除资源失败，请稍后重试");
+      }
     };
 
     // 上传资源
@@ -751,110 +767,59 @@ export default {
       uploadDialogVisible.value = true;
     };
 
-    // 提交上传
-    const submitUpload = async () => {
-      if (!uploadFormRef.value) return;
-
-      await uploadFormRef.value.validate(async (valid) => {
-        if (!valid) return;
-
-        if (!uploadForm.value.file) {
-          ElMessage.warning("请选择要上传的文件");
-          return;
+    // 提交资源表单
+    const submitForm = async () => {
+      uploadFormRef.value.validate(async (valid) => {
+        if (!valid) {
+          return false;
         }
 
-        uploading.value = true;
-        uploadDialogVisible.value = false;
-        showProgressDialog.value = true;
-        uploadProgress.value = 0;
-        progressText.value = "准备上传文件...";
-        progressStatus.value = "";
-
         try {
+          submitting.value = true;
           const formData = new FormData();
+
+          // 添加表单字段到FormData
           formData.append("title", uploadForm.value.title);
-
-          // 添加typeId字段
-          if (uploadForm.value.typeId) {
-            formData.append("typeId", uploadForm.value.typeId);
-          }
-
-          // 同时保留type字段向后兼容
-          const selectedType = types.value.find(
-            (t) => t.typeId === uploadForm.value.typeId
-          );
-          if (selectedType) {
-            formData.append("type", selectedType.typeName);
-          } else {
-            formData.append("type", uploadForm.value.type || "");
-          }
-
+          formData.append("typeId", uploadForm.value.typeId);
           formData.append("description", uploadForm.value.description || "");
-          formData.append("file", uploadForm.value.file);
 
-          // 处理标签 - 转换为JSON字符串
+          // 如果有标签，添加到FormData
           if (uploadForm.value.tags && uploadForm.value.tags.length > 0) {
             formData.append("tags", JSON.stringify(uploadForm.value.tags));
           }
 
-          // 创建取消令牌
-          const cancelTokenSource = axios.CancelToken.source();
+          // 如果编辑模式下选择了新文件，或者是新建模式，添加文件
+          if (uploadForm.value.file) {
+            formData.append("file", uploadForm.value.file);
+          }
 
-          // 创建上传进度事件
-          const onUploadProgress = (progressEvent) => {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
+          let res;
+          if (editForm.value.resourceId) {
+            // 编辑模式
+            res = await updateTeacherResource(
+              editForm.value.resourceId,
+              formData
             );
-            uploadProgress.value = percentCompleted;
-            progressText.value = `上传中... ${percentCompleted}%`;
-
-            // 更新状态
-            if (percentCompleted < 100) {
-              progressStatus.value = "";
-            } else {
-              progressStatus.value = "success";
-              progressText.value = "处理中，请稍候...";
-            }
-          };
-
-          const res = await uploadResource(
-            formData,
-            onUploadProgress,
-            cancelTokenSource.token
-          );
-
-          if (res.code === 200) {
-            // 上传成功
-            uploadProgress.value = 100;
-            progressStatus.value = "success";
-            progressText.value = "上传成功！";
-
-            setTimeout(() => {
-              showProgressDialog.value = false;
-              ElMessage.success("资源上传成功");
-              fetchResources();
-            }, 800);
           } else {
-            // 上传失败
-            progressStatus.value = "exception";
-            progressText.value = "上传失败";
+            // 新建模式
+            res = await uploadTeacherResource(formData);
+          }
 
-            setTimeout(() => {
-              showProgressDialog.value = false;
-              ElMessage.error(res.message || "上传失败");
-            }, 800);
+          if (res && (res.code === 200 || res.code === 0)) {
+            ElMessage.success(
+              editForm.value.resourceId ? "资源已成功更新" : "资源已成功上传"
+            );
+            uploadDialogVisible.value = false;
+            // 重新获取资源列表
+            fetchResources();
+          } else {
+            ElMessage.error(res?.message || "操作失败，请稍后重试");
           }
         } catch (error) {
-          console.error("上传资源失败:", error);
-          progressStatus.value = "exception";
-          progressText.value = "上传出错";
-
-          setTimeout(() => {
-            showProgressDialog.value = false;
-            ElMessage.error("上传失败，请稍后重试");
-          }, 800);
+          console.error("提交资源表单失败:", error);
+          ElMessage.error("操作失败，请稍后重试");
         } finally {
-          uploading.value = false;
+          submitting.value = false;
         }
       });
     };
@@ -869,7 +834,7 @@ export default {
         editing.value = true;
 
         try {
-          const res = await updateResource(editForm.value.resourceId, {
+          const res = await updateTeacherResource(editForm.value.resourceId, {
             title: editForm.value.title,
             type: editForm.value.type,
             description: editForm.value.description || "",
@@ -948,7 +913,7 @@ export default {
       uploadForm,
       uploadRules,
       fileList,
-      uploading,
+      submitting,
       uploadFormRef,
       editDialogVisible,
       editForm,
@@ -977,7 +942,7 @@ export default {
       handleEditResource,
       handleDeleteResource,
       handleUploadResource,
-      submitUpload,
+      submitForm,
       submitEdit,
       formatDate,
       getStatusType,

@@ -60,8 +60,8 @@ public interface ResourceMapper {
      * @return 符合条件的资源总数
      */
     int countResources(@Param("keyword") String keyword, 
-                      @Param("type") String type, 
-                      @Param("typeId") Integer typeId);
+                                  @Param("type") String type, 
+                                  @Param("typeId") Integer typeId);
     
     /**
      * 获取热门资源列表(按下载量降序排序)

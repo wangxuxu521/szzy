@@ -8,6 +8,16 @@ export function getAllTypes() {
   return request({
     url: "/types",
     method: "get",
+  }).then((response) => {
+    // 确保返回数组格式的数据
+    if (response && response.data && Array.isArray(response.data)) {
+      return response.data;
+    } else if (Array.isArray(response)) {
+      return response;
+    } else {
+      console.warn("类型数据格式不符合预期:", response);
+      return [];
+    }
   });
 }
 

@@ -105,6 +105,7 @@
         title="上传资源"
         width="600px"
         append-to-body
+        :close-on-click-modal="false"
       >
         <el-form
           ref="uploadFormRef"
@@ -118,17 +119,18 @@
               placeholder="请输入资源标题"
             ></el-input>
           </el-form-item>
-          <el-form-item label="资源类型" prop="type">
+          <el-form-item label="资源类型" prop="typeId">
             <el-select
-              v-model="uploadForm.type"
+              v-model="uploadForm.typeId"
               placeholder="请选择资源类型"
               style="width: 100%"
+              filterable
             >
               <el-option
-                v-for="type in resourceTypes"
-                :key="type"
-                :label="type"
-                :value="type"
+                v-for="type in types"
+                :key="type.typeId"
+                :label="type.typeName"
+                :value="type.typeId"
               ></el-option>
             </el-select>
           </el-form-item>
@@ -140,18 +142,73 @@
               placeholder="请输入资源描述"
             ></el-input>
           </el-form-item>
+          <el-form-item label="标签" prop="tags">
+            <el-select
+              v-model="uploadForm.tags"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              placeholder="请选择或输入标签"
+              style="width: 100%"
+            >
+              <el-option-group label="主题标签">
+                <el-option
+                  v-for="tag in themeTagOptions"
+                  :key="tag.value"
+                  :label="tag.label"
+                  :value="tag.value"
+                >
+                  <span>{{ tag.label }}</span>
+                  <el-tag size="small" type="success">主题</el-tag>
+                </el-option>
+              </el-option-group>
+              <el-option-group label="学科标签">
+                <el-option
+                  v-for="tag in subjectTagOptions"
+                  :key="tag.value"
+                  :label="tag.label"
+                  :value="tag.value"
+                >
+                  <span>{{ tag.label }}</span>
+                  <el-tag size="small" type="primary">学科</el-tag>
+                </el-option>
+              </el-option-group>
+              <el-option-group label="格式标签">
+                <el-option
+                  v-for="tag in formatTagOptions"
+                  :key="tag.value"
+                  :label="tag.label"
+                  :value="tag.value"
+                >
+                  <span>{{ tag.label }}</span>
+                  <el-tag size="small" type="info">格式</el-tag>
+                </el-option>
+              </el-option-group>
+            </el-select>
+            <div class="form-tip">多个标签有助于其他用户更容易找到您的资源</div>
+          </el-form-item>
           <el-form-item label="资源文件" prop="file">
             <el-upload
               class="upload-file"
               :auto-upload="false"
               :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+              :before-remove="confirmRemoveFile"
               :limit="1"
               :file-list="fileList"
+              :on-exceed="handleExceed"
             >
               <el-button type="primary">选择文件</el-button>
               <template #tip>
                 <div class="el-upload__tip">
-                  支持各种文件格式，单个文件大小不超过20MB
+                  支持各种文件格式，单个文件大小不超过{{ maxFileSize }}MB
+                  <div v-if="fileInfo.size" class="file-info">
+                    <span class="file-size"
+                      >文件大小: {{ formatFileSize(fileInfo.size) }}</span
+                    >
+                    <span class="file-format">格式: {{ fileInfo.format }}</span>
+                  </div>
                 </div>
               </template>
             </el-upload>
@@ -160,7 +217,7 @@
         <template #footer>
           <span class="dialog-footer">
             <el-button @click="uploadDialogVisible = false">取消</el-button>
-            <el-button type="primary" @click="submitUpload" :loading="uploading"
+            <el-button type="primary" @click="submitForm" :loading="submitting"
               >上传</el-button
             >
           </span>
@@ -188,15 +245,17 @@
 </template>
 
 <script>
-import { ref, onMounted } from "vue";
+import { ref, reactive, computed, onMounted } from "vue";
 import { useStore } from "vuex";
 import { useRouter } from "vue-router";
-import { ElMessage, ElLoading } from "element-plus";
+import { ElMessage, ElMessageBox, ElLoading } from "element-plus";
 import { Document, Reading, User, Upload } from "@element-plus/icons-vue";
 import BaseLayout from "@/layout/BaseLayout.vue";
 import ResourceCard from "@/components/common/ResourceCard.vue";
 import * as teacherApi from "@/api/teacher";
-import { uploadResource } from "@/api/resource";
+import { getAllTypes } from "@/api/type";
+import { getTagList } from "@/api/tag";
+import { getSystemConfigs } from "@/api/system";
 
 export default {
   name: "TeacherCenter",
@@ -229,62 +288,187 @@ export default {
     const recentActivities = ref([]);
     const loading = ref(false);
 
+    // 资源类型和标签
+    const types = ref([]);
+    const availableTags = ref([]);
+
+    // 按标签类型分组
+    const themeTagOptions = computed(() => {
+      return availableTags.value
+        .filter((tag) => tag.tagType === "theme")
+        .map((tag) => ({
+          label: tag.tagName,
+          value: tag.tagName,
+        }));
+    });
+
+    const subjectTagOptions = computed(() => {
+      return availableTags.value
+        .filter((tag) => tag.tagType === "subject")
+        .map((tag) => ({
+          label: tag.tagName,
+          value: tag.tagName,
+        }));
+    });
+
+    const formatTagOptions = computed(() => {
+      return availableTags.value
+        .filter((tag) => tag.tagType === "format")
+        .map((tag) => ({
+          label: tag.tagName,
+          value: tag.tagName,
+        }));
+    });
+
     // 上传对话框相关
     const uploadDialogVisible = ref(false);
     const uploadForm = ref({
       title: "",
-      type: "",
+      typeId: "",
       description: "",
+      tags: [],
       file: null,
     });
     const uploadRules = {
       title: [{ required: true, message: "请输入资源标题", trigger: "blur" }],
-      type: [{ required: true, message: "请选择资源类型", trigger: "change" }],
+      typeId: [
+        { required: true, message: "请选择资源类型", trigger: "change" },
+      ],
       file: [{ required: true, message: "请选择上传文件", trigger: "change" }],
     };
     const fileList = ref([]);
-    const uploading = ref(false);
-    const resourceTypes = ref(["计算机", "通信", "人工智能"]);
+    const submitting = ref(false);
     const uploadFormRef = ref(null);
+
+    // 文件信息
+    const fileInfo = reactive({
+      size: null,
+      format: null,
+    });
+
+    // 最大文件大小(MB)
+    const maxFileSize = ref(20);
+
+    // 允许的文件格式
+    const allowedFileTypes = ref([]);
 
     // 文件选择处理
     const handleFileChange = (file) => {
       uploadForm.value.file = file.raw;
+      fileInfo.size = file.raw.size;
+      fileInfo.format = file.raw.name.split(".").pop().toLowerCase();
+
+      // 验证文件大小
+      const maxSize = maxFileSize.value * 1024 * 1024; // 转换为字节
+      if (file.raw.size > maxSize) {
+        ElMessage.error(`文件大小不能超过${maxFileSize.value}MB`);
+        handleFileRemove();
+        return false;
+      }
+
+      // 验证文件类型
+      if (!validateFileType(file.raw.name)) {
+        ElMessage.error(`不支持的文件格式: ${fileInfo.format}`);
+        handleFileRemove();
+        return false;
+      }
+
+      return true;
     };
 
-    // 提交上传
-    const submitUpload = async () => {
-      if (!uploadForm.value.file) {
-        ElMessage.warning("请选择要上传的文件");
-        return;
+    // 处理文件移除
+    const handleFileRemove = () => {
+      uploadForm.value.file = null;
+      fileInfo.size = null;
+      fileInfo.format = null;
+      fileList.value = [];
+    };
+
+    // 处理文件超出限制
+    const handleExceed = () => {
+      ElMessage.warning("只能上传一个文件");
+    };
+
+    // 确认移除文件
+    const confirmRemoveFile = (file) => {
+      return ElMessageBox.confirm(`确认移除 ${file.name}？`, "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(() => true)
+        .catch(() => false);
+    };
+
+    // 验证文件类型
+    const validateFileType = (fileName) => {
+      if (!fileName) return false;
+
+      const extension = fileName.split(".").pop().toLowerCase();
+      if (!extension) return false;
+
+      return allowedFileTypes.value.includes(extension);
+    };
+
+    // 格式化文件大小
+    const formatFileSize = (size) => {
+      if (!size) return "未知大小";
+
+      if (size < 1024) {
+        return size + " B";
+      } else if (size < 1024 * 1024) {
+        return (size / 1024).toFixed(2) + " KB";
+      } else if (size < 1024 * 1024 * 1024) {
+        return (size / (1024 * 1024)).toFixed(2) + " MB";
+      } else {
+        return (size / (1024 * 1024 * 1024)).toFixed(2) + " GB";
       }
+    };
 
-      uploading.value = true;
-
-      try {
-        const formData = new FormData();
-        formData.append("title", uploadForm.value.title);
-        formData.append("type", uploadForm.value.type);
-        formData.append("description", uploadForm.value.description);
-        formData.append("file", uploadForm.value.file);
-
-        const res = await uploadResource(formData);
-
-        if (res.code === 200) {
-          ElMessage.success("资源上传成功");
-          uploadDialogVisible.value = false;
-          // 重新获取资源列表
-          fetchTeacherResources();
-          fetchStatistics();
-        } else {
-          ElMessage.error(res.message || "上传失败");
+    // 提交表单
+    const submitForm = async () => {
+      uploadFormRef.value.validate(async (valid) => {
+        if (!valid) {
+          return false;
         }
-      } catch (error) {
-        console.error("上传资源失败:", error);
-        ElMessage.error("上传失败，请稍后重试");
-      } finally {
-        uploading.value = false;
-      }
+
+        try {
+          submitting.value = true;
+          const formData = new FormData();
+
+          // 添加表单字段到FormData
+          formData.append("title", uploadForm.value.title);
+          formData.append("typeId", uploadForm.value.typeId);
+          formData.append("description", uploadForm.value.description || "");
+
+          // 如果有标签，添加到FormData
+          if (uploadForm.value.tags && uploadForm.value.tags.length > 0) {
+            formData.append("tags", JSON.stringify(uploadForm.value.tags));
+          }
+
+          // 添加文件
+          if (uploadForm.value.file) {
+            formData.append("file", uploadForm.value.file);
+          }
+
+          const res = await teacherApi.uploadTeacherResource(formData);
+
+          if (res && (res.code === 200 || res.code === 0)) {
+            ElMessage.success("资源已成功上传");
+            uploadDialogVisible.value = false;
+            // 重新获取资源列表
+            fetchTeacherResources();
+            fetchStatistics();
+          } else {
+            ElMessage.error(res?.message || "上传失败，请稍后重试");
+          }
+        } catch (error) {
+          console.error("提交资源表单失败:", error);
+          ElMessage.error("上传失败，请稍后重试");
+        } finally {
+          submitting.value = false;
+        }
+      });
     };
 
     // 上传资源
@@ -292,11 +476,14 @@ export default {
       // 重置表单
       uploadForm.value = {
         title: "",
-        type: "",
+        typeId: "",
         description: "",
+        tags: [],
         file: null,
       };
       fileList.value = [];
+      fileInfo.size = null;
+      fileInfo.format = null;
       uploadDialogVisible.value = true;
     };
 
@@ -313,6 +500,96 @@ export default {
         }
       } catch (error) {
         console.error("获取教师信息失败:", error);
+      }
+    };
+
+    // 加载系统配置
+    const loadSystemConfig = async () => {
+      try {
+        const response = await getSystemConfigs();
+        if (response && response.code === 200 && response.data) {
+          const configs = response.data;
+
+          // 获取文件大小限制
+          const sizeLimit = configs.find(
+            (c) => c.configKey === "upload_size_limit"
+          );
+          if (sizeLimit && sizeLimit.configValue) {
+            maxFileSize.value = parseInt(sizeLimit.configValue) || 20;
+          }
+
+          // 获取允许的文件类型
+          const fileTypes = configs.find(
+            (c) => c.configKey === "allowed_file_types"
+          );
+          if (fileTypes && fileTypes.configValue) {
+            allowedFileTypes.value = fileTypes.configValue
+              .split(",")
+              .map((t) => t.trim());
+          } else {
+            allowedFileTypes.value = [
+              "pdf",
+              "doc",
+              "docx",
+              "ppt",
+              "pptx",
+              "xls",
+              "xlsx",
+              "txt",
+              "jpg",
+              "jpeg",
+              "png",
+              "gif",
+              "mp4",
+              "mp3",
+              "zip",
+              "rar",
+            ];
+          }
+        }
+      } catch (error) {
+        console.error("获取系统配置失败:", error);
+      }
+    };
+
+    // 加载资源类型
+    const loadResourceTypes = async () => {
+      try {
+        const response = await getAllTypes();
+
+        if (response && typeof response === "object") {
+          if (Array.isArray(response)) {
+            types.value = response;
+          } else if (response.data && Array.isArray(response.data)) {
+            types.value = response.data;
+          }
+        }
+      } catch (error) {
+        console.error("获取资源类型失败:", error);
+      }
+    };
+
+    // 加载标签数据
+    const loadTags = async () => {
+      try {
+        const response = await getTagList();
+
+        if (response && typeof response === "object") {
+          if (Array.isArray(response)) {
+            availableTags.value = response;
+          } else if (response.data && Array.isArray(response.data)) {
+            availableTags.value = response.data;
+          }
+        }
+      } catch (error) {
+        console.error("获取标签列表失败:", error);
+        // 默认标签
+        availableTags.value = [
+          { tagId: 1, tagName: "爱国主义", tagType: "theme" },
+          { tagId: 2, tagName: "工科", tagType: "subject" },
+          { tagId: 3, tagName: "PDF", tagType: "format" },
+          { tagId: 4, tagName: "爱国教育", tagType: "subject" },
+        ];
       }
     };
 
@@ -453,6 +730,9 @@ export default {
           fetchStatistics(),
           fetchTeacherResources(),
           fetchActivities(),
+          loadSystemConfig(),
+          loadResourceTypes(),
+          loadTags(),
         ]);
       } catch (error) {
         console.error("初始化数据失败:", error);
@@ -472,17 +752,27 @@ export default {
       stats,
       myResources,
       recentActivities,
-      handleUploadResource,
-      // 上传对话框相关
       uploadDialogVisible,
       uploadForm,
       uploadRules,
       fileList,
-      uploading,
-      resourceTypes,
+      submitting,
       uploadFormRef,
+      types,
+      availableTags,
+      themeTagOptions,
+      subjectTagOptions,
+      formatTagOptions,
+      fileInfo,
+      maxFileSize,
       handleFileChange,
-      submitUpload,
+      handleFileRemove,
+      handleExceed,
+      confirmRemoveFile,
+      submitForm,
+      handleUploadResource,
+      formatFileSize,
+      validateFileType,
     };
   },
 };

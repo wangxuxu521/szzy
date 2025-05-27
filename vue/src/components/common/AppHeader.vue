@@ -13,13 +13,7 @@
     <div class="nav-links">
       <router-link to="/" class="nav-link">首页</router-link>
       <router-link to="/resources" class="nav-link">资源库</router-link>
-      <router-link
-        v-if="isLoggedIn && (userRole === 'teacher' || userRole === 'admin')"
-        to="/resource-management"
-        class="nav-link"
-      >
-        资源管理
-      </router-link>
+
       <template v-if="!isLoggedIn">
         <button @click="goToLogin" class="login-btn">登录</button>
       </template>

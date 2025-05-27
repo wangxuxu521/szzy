@@ -1,117 +1,127 @@
 <template>
-  <div class="course-management">
-    <div class="page-header">
-      <h1>课程管理</h1>
-      <el-button type="primary" @click="openCourseDialog()">添加课程</el-button>
-    </div>
+  <div>
+    <AppHeader />
+    <div class="course-management">
+      <div class="page-header">
+        <h1>课程管理</h1>
+        <el-button type="primary" @click="openCourseDialog()"
+          >添加课程</el-button
+        >
+      </div>
 
-    <!-- 课程列表 -->
-    <div v-if="loading" class="loading-container">
-      <el-skeleton :rows="5" animated />
-    </div>
-    <div v-else-if="courses.length === 0" class="empty-container">
-      <el-empty description="暂无课程" />
-      <el-button type="primary" @click="openCourseDialog()"
-        >添加第一个课程</el-button
-      >
-    </div>
-    <div v-else class="course-list">
-      <el-card
-        v-for="course in courses"
-        :key="course.courseId"
-        class="course-card"
-      >
-        <div class="course-header">
-          <div class="course-title">
-            <h3>{{ course.courseName }}</h3>
-            <el-tag v-if="course.typeName">{{ course.typeName }}</el-tag>
+      <!-- 课程列表 -->
+      <div v-if="loading" class="loading-container">
+        <el-skeleton :rows="5" animated />
+      </div>
+      <div v-else-if="courses.length === 0" class="empty-container">
+        <el-empty description="暂无课程" />
+        <el-button type="primary" @click="openCourseDialog()"
+          >添加第一个课程</el-button
+        >
+      </div>
+      <div v-else class="course-list">
+        <el-card
+          v-for="course in courses"
+          :key="course.courseId"
+          class="course-card"
+        >
+          <div class="course-header">
+            <div class="course-title">
+              <h3>{{ course.courseName }}</h3>
+              <el-tag v-if="course.typeName">{{ course.typeName }}</el-tag>
+            </div>
+            <div class="course-actions">
+              <el-button
+                type="primary"
+                size="small"
+                @click="openCourseDialog(course)"
+                >编辑</el-button
+              >
+              <el-button
+                type="danger"
+                size="small"
+                @click="confirmDelete(course)"
+                >删除</el-button
+              >
+            </div>
           </div>
-          <div class="course-actions">
-            <el-button
-              type="primary"
-              size="small"
-              @click="openCourseDialog(course)"
-              >编辑</el-button
-            >
-            <el-button type="danger" size="small" @click="confirmDelete(course)"
-              >删除</el-button
-            >
+          <div class="course-content">
+            <p v-if="course.description">{{ course.description }}</p>
+            <p v-else class="empty-desc">暂无课程描述</p>
           </div>
-        </div>
-        <div class="course-content">
-          <p v-if="course.description">{{ course.description }}</p>
-          <p v-else class="empty-desc">暂无课程描述</p>
-        </div>
-      </el-card>
-    </div>
+        </el-card>
+      </div>
 
-    <!-- 课程表单对话框 -->
-    <el-dialog
-      v-model="courseDialogVisible"
-      :title="isEdit ? '编辑课程' : '添加课程'"
-      width="600px"
-    >
-      <el-form
-        ref="courseFormRef"
-        :model="courseForm"
-        :rules="courseRules"
-        label-width="100px"
+      <!-- 课程表单对话框 -->
+      <el-dialog
+        v-model="courseDialogVisible"
+        :title="isEdit ? '编辑课程' : '添加课程'"
+        width="600px"
       >
-        <el-form-item label="课程名称" prop="courseName">
-          <el-input
-            v-model="courseForm.courseName"
-            placeholder="请输入课程名称"
-          />
-        </el-form-item>
-        <el-form-item label="课程类型" prop="typeId">
-          <el-select
-            v-model="courseForm.typeId"
-            placeholder="请选择课程类型"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="type in courseTypes"
-              :key="type.typeId"
-              :label="type.typeName"
-              :value="type.typeId"
+        <el-form
+          ref="courseFormRef"
+          :model="courseForm"
+          :rules="courseRules"
+          label-width="100px"
+        >
+          <el-form-item label="课程名称" prop="courseName">
+            <el-input
+              v-model="courseForm.courseName"
+              placeholder="请输入课程名称"
             />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="课程描述" prop="description">
-          <el-input
-            v-model="courseForm.description"
-            type="textarea"
-            rows="5"
-            placeholder="请输入课程描述"
-          />
-        </el-form-item>
-        <el-form-item label="封面图片">
-          <el-upload
-            class="cover-uploader"
-            action="#"
-            :auto-upload="false"
-            :on-change="handleCoverChange"
-            :limit="1"
-            :file-list="coverList"
-            :show-file-list="true"
-            list-type="picture-card"
-          >
-            <el-icon><Plus /></el-icon>
-            <template #tip>
-              <div class="el-upload__tip">支持jpg、png格式，大小不超过2MB</div>
-            </template>
-          </el-upload>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="courseDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveCourse" :loading="saving"
-            >保存</el-button
-          >
-        </span>
-      </template>
-    </el-dialog>
+          </el-form-item>
+          <el-form-item label="课程类型" prop="typeId">
+            <el-select
+              v-model="courseForm.typeId"
+              placeholder="请选择课程类型"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="type in courseTypes"
+                :key="type.typeId"
+                :label="type.typeName"
+                :value="type.typeId"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="课程描述" prop="description">
+            <el-input
+              v-model="courseForm.description"
+              type="textarea"
+              rows="5"
+              placeholder="请输入课程描述"
+            />
+          </el-form-item>
+          <el-form-item label="封面图片">
+            <el-upload
+              class="cover-uploader"
+              action="#"
+              :auto-upload="false"
+              :on-change="handleCoverChange"
+              :limit="1"
+              :file-list="coverList"
+              :show-file-list="true"
+              list-type="picture-card"
+            >
+              <el-icon><Plus /></el-icon>
+              <template #tip>
+                <div class="el-upload__tip">
+                  支持jpg、png格式，大小不超过2MB
+                </div>
+              </template>
+            </el-upload>
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <span class="dialog-footer">
+            <el-button @click="courseDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="saveCourse" :loading="saving"
+              >保存</el-button
+            >
+          </span>
+        </template>
+      </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -125,11 +135,13 @@ import {
   updateCourse,
   deleteCourse,
 } from "@/api/teacher";
+import AppHeader from "@/components/common/AppHeader.vue";
 
 export default {
   name: "CourseManagement",
   components: {
     Plus,
+    AppHeader,
   },
   setup() {
     // 数据

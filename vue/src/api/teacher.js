@@ -45,6 +45,48 @@ export function getTeacherResources(params) {
 }
 
 /**
+ * 上传教师资源
+ * @param {FormData} formData 资源表单数据
+ */
+export function uploadTeacherResource(formData) {
+  return request({
+    url: "/resources/upload",
+    method: "post",
+    data: formData,
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+}
+
+/**
+ * 更新教师资源
+ * @param {Number} resourceId 资源ID
+ * @param {FormData} formData 资源表单数据
+ */
+export function updateTeacherResource(resourceId, formData) {
+  return request({
+    url: `/resources/${resourceId}`,
+    method: "put",
+    data: formData,
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+}
+
+/**
+ * 删除教师资源
+ * @param {Number} resourceId 资源ID
+ */
+export function deleteTeacherResource(resourceId) {
+  return request({
+    url: `/resources/${resourceId}`,
+    method: "delete",
+  });
+}
+
+/**
  * 获取教师的课程列表
  */
 export function getTeacherCourses() {

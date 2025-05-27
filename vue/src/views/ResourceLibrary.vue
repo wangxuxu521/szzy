@@ -54,9 +54,9 @@ export default {
       // 更新URL，保留已有的搜索关键词参数
       const query = { ...route.query };
       if (category === "全部") {
-        delete query.type;
+        delete query.typeId;
       } else {
-        query.type = category;
+        query.typeId = category;
       }
 
       // 替换当前路由，保留查询参数但不添加历史记录
@@ -101,28 +101,59 @@ export default {
 
         // 如果选择了特定类型，添加到搜索参数中
         if (activeCategory.value !== "全部") {
-          params.type = activeCategory.value;
+          // 如果activeCategory.value是数字字符串，转换为数字
+          // 否则通过类型名称查询
+          if (!isNaN(activeCategory.value)) {
+            params.typeId = Number(activeCategory.value);
+          } else {
+            params.type = activeCategory.value;
+          }
         }
 
         console.log("搜索参数:", params);
         const response = await searchResources(params);
+        console.log("搜索响应:", response);
 
-        if (response && response.code === 200 && response.data) {
-          resources.value = response.data.map(formatResourceData);
+        // 处理不同格式的响应数据
+        if (response && response.code === 200) {
+          if (response.data && typeof response.data === "object") {
+            // 检查是否是分页数据结构 {data: [...], total: number, ...}
+            if (Array.isArray(response.data.data)) {
+              resources.value = response.data.data.map(formatResourceData);
+            }
+            // 检查data是否直接是数组
+            else if (Array.isArray(response.data)) {
+              resources.value = response.data.map(formatResourceData);
+            }
+            // 如果data是单个对象，转换为数组处理
+            else if (
+              typeof response.data === "object" &&
+              !Array.isArray(response.data)
+            ) {
+              resources.value = [formatResourceData(response.data)];
+            } else {
+              console.error("未识别的数据格式:", response.data);
+              resources.value = [];
+            }
+          } else {
+            console.error("响应中没有data字段或格式不正确:", response);
+            resources.value = [];
+          }
         } else if (response && Array.isArray(response)) {
-          // 处理直接返回数组的情况
+          // 直接是数组的情况
           resources.value = response.map(formatResourceData);
         } else {
-          ElMessage.error("搜索资源失败");
           console.error("搜索响应格式错误:", response);
+          resources.value = [];
+          ElMessage.error("搜索资源失败");
         }
 
         // 更新URL以包含搜索关键词
         const query = { ...route.query, keyword: searchQuery.value.trim() };
         if (activeCategory.value !== "全部") {
-          query.type = activeCategory.value;
+          query.typeId = activeCategory.value;
         } else {
-          delete query.type;
+          delete query.typeId;
         }
 
         router.replace({
@@ -130,8 +161,9 @@ export default {
           query,
         });
       } catch (error) {
-        ElMessage.error("搜索资源失败");
         console.error("搜索资源出错:", error);
+        resources.value = [];
+        ElMessage.error("搜索资源失败");
       } finally {
         loading.value = false;
       }
@@ -150,23 +182,53 @@ export default {
         const response = await getResourceTypes();
         console.log("资源类型API响应:", response);
 
+        // 存储原始类型对象以便查询typeId和typeName的映射关系
+        const typeObjects = [];
+
         if (response && response.code === 200 && response.data) {
           // 将后端返回的类型数据转化为前端需要的格式
-          categories.value = ["全部", ...response.data];
-          console.log("获取到的资源类型:", categories.value);
+          if (Array.isArray(response.data)) {
+            // 提取类型名称
+            response.data.forEach((type) => {
+              if (typeof type === "object") {
+                typeObjects.push(type);
+                if (type.typeName) {
+                  if (!categories.value.includes(type.typeName)) {
+                    categories.value.push(type.typeName);
+                  }
+                }
+              } else if (typeof type === "string") {
+                if (!categories.value.includes(type)) {
+                  categories.value.push(type);
+                }
+              }
+            });
+          }
         } else if (response && Array.isArray(response)) {
           // 处理直接返回数组的情况
-          categories.value = ["全部", ...response];
-          console.log("获取到的资源类型(数组):", categories.value);
-        } else if (response && typeof response === "object") {
-          // 处理直接返回对象的情况
-          categories.value = ["全部", ...Object.values(response)];
-          console.log("获取到的资源类型(对象):", categories.value);
-        } else {
-          console.error("获取资源类型响应格式错误:", response);
-          // 使用默认类型
+          response.forEach((type) => {
+            if (typeof type === "object") {
+              typeObjects.push(type);
+              if (type.typeName) {
+                if (!categories.value.includes(type.typeName)) {
+                  categories.value.push(type.typeName);
+                }
+              }
+            } else if (typeof type === "string") {
+              if (!categories.value.includes(type)) {
+                categories.value.push(type);
+              }
+            }
+          });
+        }
+
+        // 如果没有获取到任何类型，使用默认类型
+        if (categories.value.length <= 1) {
           categories.value = ["全部", "计算机", "通信", "人工智能"];
         }
+
+        console.log("解析后的资源类型:", categories.value);
+        console.log("类型对象数据:", typeObjects);
       } catch (error) {
         console.error("获取资源类型失败:", error);
         // 使用默认类型
@@ -181,15 +243,44 @@ export default {
         // 构建请求参数，按类型过滤
         const params = {};
         if (activeCategory.value !== "全部") {
-          params.type = activeCategory.value;
+          // 如果activeCategory.value是数字字符串，转换为数字
+          // 否则通过类型名称查询
+          if (!isNaN(activeCategory.value)) {
+            params.typeId = Number(activeCategory.value);
+          } else {
+            params.type = activeCategory.value;
+          }
         }
 
         console.log("获取资源列表参数:", params);
         const response = await getResourceList(params);
         console.log("资源列表API响应:", response);
 
-        if (response && response.code === 200 && response.data) {
-          resources.value = response.data.map(formatResourceData);
+        // 处理不同格式的响应数据
+        if (response && response.code === 200) {
+          if (response.data && typeof response.data === "object") {
+            // 检查是否是分页数据结构 {data: [...], total: number, ...}
+            if (Array.isArray(response.data.data)) {
+              resources.value = response.data.data.map(formatResourceData);
+            }
+            // 检查data是否直接是数组
+            else if (Array.isArray(response.data)) {
+              resources.value = response.data.map(formatResourceData);
+            }
+            // 如果data是单个对象，转换为数组处理
+            else if (
+              typeof response.data === "object" &&
+              !Array.isArray(response.data)
+            ) {
+              resources.value = [formatResourceData(response.data)];
+            } else {
+              console.error("未识别的数据格式:", response.data);
+              resources.value = [];
+            }
+          } else {
+            console.error("响应中没有data字段或格式不正确:", response);
+            resources.value = [];
+          }
         } else if (response && Array.isArray(response)) {
           // 处理直接返回数组的情况
           resources.value = response.map(formatResourceData);
@@ -199,13 +290,22 @@ export default {
           !("code" in response)
         ) {
           // 尝试将对象转换为数组处理
-          resources.value = Object.values(response).map(formatResourceData);
+          if (response.data && Array.isArray(response.data)) {
+            resources.value = response.data.map(formatResourceData);
+          } else if (Array.isArray(response)) {
+            resources.value = response.map(formatResourceData);
+          } else {
+            console.error("无法识别的响应格式:", response);
+            resources.value = [];
+          }
         } else {
           console.error("获取资源列表响应格式错误:", response);
+          resources.value = [];
           ElMessage.error("获取资源列表失败");
         }
       } catch (error) {
         console.error("获取资源列表失败:", error);
+        resources.value = [];
         ElMessage.error("获取资源列表失败");
       } finally {
         loading.value = false;
@@ -214,25 +314,59 @@ export default {
 
     // 格式化资源数据
     const formatResourceData = (resource) => {
+      if (!resource) {
+        console.error("试图格式化null或undefined资源");
+        return {
+          id: 0,
+          title: "未知资源",
+          category: "未分类",
+          type: "其他",
+          author: "未知用户",
+          views: 0,
+          date: "",
+          description: "",
+          resourceId: 0,
+        };
+      }
+
       console.log("正在格式化资源:", resource);
-      return {
-        id: resource.resourceId || resource.resource_id,
-        title: resource.title,
-        category: resource.type || "未分类",
-        type: getResourceTypeLabel(resource.format),
-        author: resource.uploaderName || "未知用户",
-        views: resource.viewCount || resource.view_count || 0,
-        date: formatDate(resource.uploadTime || resource.upload_time),
-        description: resource.description,
-        // 确保返回所有可能需要的原始数据
-        resourceId: resource.resourceId || resource.resource_id,
-        format: resource.format,
-        filePath: resource.filePath || resource.file_path,
-        fileName: resource.fileName || resource.file_name,
-        downloadCount: resource.downloadCount || resource.download_count || 0,
-        reviewStatus: resource.reviewStatus || resource.review_status,
-        uploaderId: resource.uploaderId || resource.uploader_id,
-      };
+      try {
+        return {
+          id: resource.resourceId || resource.resource_id || resource.id || 0,
+          title: resource.title || "未命名资源",
+          category: resource.type || "未分类",
+          type: getResourceTypeLabel(resource.format),
+          author: resource.uploaderName || resource.author || "未知用户",
+          views: resource.viewCount || resource.view_count || 0,
+          date: formatDate(
+            resource.uploadTime || resource.upload_time || new Date()
+          ),
+          description: resource.description || "",
+          // 确保返回所有可能需要的原始数据
+          resourceId:
+            resource.resourceId || resource.resource_id || resource.id || 0,
+          format: resource.format || "",
+          filePath: resource.filePath || resource.file_path || "",
+          fileName: resource.fileName || resource.file_name || "",
+          downloadCount: resource.downloadCount || resource.download_count || 0,
+          reviewStatus:
+            resource.reviewStatus || resource.review_status || "pending",
+          uploaderId: resource.uploaderId || resource.uploader_id || 0,
+        };
+      } catch (error) {
+        console.error("格式化资源数据失败:", error, resource);
+        return {
+          id: resource.resourceId || resource.id || 0,
+          title: resource.title || "数据格式错误",
+          category: "未分类",
+          type: "其他",
+          author: "未知用户",
+          views: 0,
+          date: "",
+          description: "",
+          resourceId: resource.resourceId || resource.id || 0,
+        };
+      }
     };
 
     // 格式化日期
@@ -320,9 +454,21 @@ export default {
       await fetchResourceTypes();
 
       // 如果URL中有指定类型，切换到该类型
-      if (route.query.type && categories.value.includes(route.query.type)) {
-        activeCategory.value = route.query.type;
-        console.log("从URL设置类型为:", activeCategory.value);
+      if (route.query.typeId) {
+        // 尝试在categories中查找是否有匹配的类型名称
+        const typeId = route.query.typeId;
+
+        // 如果typeId是数字，直接使用
+        if (!isNaN(typeId)) {
+          activeCategory.value = typeId;
+          console.log("从URL设置类型ID为:", activeCategory.value);
+        } else {
+          // 如果typeId是字符串名称，查找是否在类型列表中
+          if (categories.value.includes(typeId)) {
+            activeCategory.value = typeId;
+            console.log("从URL设置类型名称为:", activeCategory.value);
+          }
+        }
       }
 
       // 如果有搜索关键词，直接搜索

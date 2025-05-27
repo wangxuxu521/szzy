@@ -11,7 +11,6 @@
       show-word-limit
     />
     <div class="form-actions">
-      <span class="comment-tips">评论内容将在提交后由管理员审核</span>
       <el-button
         type="primary"
         :loading="submitting"

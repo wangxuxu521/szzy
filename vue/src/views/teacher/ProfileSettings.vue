@@ -1,105 +1,111 @@
 <template>
-  <div class="profile-settings">
-    <div class="page-header">
-      <h1>个人资料设置</h1>
-    </div>
+  <div>
+    <AppHeader />
+    <div class="profile-settings">
+      <div class="page-header">
+        <h1>个人资料设置</h1>
+      </div>
 
-    <el-card class="settings-card">
-      <el-tabs v-model="activeTab">
-        <el-tab-pane label="基本信息" name="basic">
-          <el-form
-            ref="basicFormRef"
-            :model="basicForm"
-            :rules="basicRules"
-            label-width="100px"
-            class="basic-form"
-          >
-            <el-form-item label="用户名">
-              <el-input v-model="basicForm.username" disabled />
-              <div class="form-tip">用户名不可修改</div>
-            </el-form-item>
-            <el-form-item label="姓名" prop="name">
-              <el-input v-model="basicForm.name" placeholder="请输入您的姓名" />
-            </el-form-item>
-            <el-form-item label="所属院系" prop="department">
-              <el-input
-                v-model="basicForm.department"
-                placeholder="请输入您的所属院系"
-              />
-            </el-form-item>
-            <el-form-item label="邮箱" prop="email">
-              <el-input
-                v-model="basicForm.email"
-                placeholder="请输入您的邮箱"
-              />
-            </el-form-item>
-            <el-form-item label="头像">
-              <div class="avatar-wrapper">
-                <div class="avatar-preview">
-                  <div class="avatar">{{ getAvatarInitials() }}</div>
+      <el-card class="settings-card">
+        <el-tabs v-model="activeTab">
+          <el-tab-pane label="基本信息" name="basic">
+            <el-form
+              ref="basicFormRef"
+              :model="basicForm"
+              :rules="basicRules"
+              label-width="100px"
+              class="basic-form"
+            >
+              <el-form-item label="用户名">
+                <el-input v-model="basicForm.username" disabled />
+                <div class="form-tip">用户名不可修改</div>
+              </el-form-item>
+              <el-form-item label="姓名" prop="name">
+                <el-input
+                  v-model="basicForm.name"
+                  placeholder="请输入您的姓名"
+                />
+              </el-form-item>
+              <el-form-item label="所属院系" prop="department">
+                <el-input
+                  v-model="basicForm.department"
+                  placeholder="请输入您的所属院系"
+                />
+              </el-form-item>
+              <el-form-item label="邮箱" prop="email">
+                <el-input
+                  v-model="basicForm.email"
+                  placeholder="请输入您的邮箱"
+                />
+              </el-form-item>
+              <el-form-item label="头像">
+                <div class="avatar-wrapper">
+                  <div class="avatar-preview">
+                    <div class="avatar">{{ getAvatarInitials() }}</div>
+                  </div>
+                  <div class="avatar-tip">
+                    <p>目前使用的是基于姓名的自动生成头像</p>
+                  </div>
                 </div>
-                <div class="avatar-tip">
-                  <p>目前使用的是基于姓名的自动生成头像</p>
+              </el-form-item>
+              <el-form-item>
+                <el-button
+                  type="primary"
+                  @click="saveBasicInfo"
+                  :loading="savingBasic"
+                  >保存信息</el-button
+                >
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
+          <el-tab-pane label="修改密码" name="password">
+            <el-form
+              ref="passwordFormRef"
+              :model="passwordForm"
+              :rules="passwordRules"
+              label-width="120px"
+              class="password-form"
+            >
+              <el-form-item label="当前密码" prop="currentPassword">
+                <el-input
+                  v-model="passwordForm.currentPassword"
+                  type="password"
+                  placeholder="请输入当前密码"
+                  show-password
+                />
+              </el-form-item>
+              <el-form-item label="新密码" prop="newPassword">
+                <el-input
+                  v-model="passwordForm.newPassword"
+                  type="password"
+                  placeholder="请输入新密码"
+                  show-password
+                />
+                <div class="form-tip">
+                  密码长度至少为6位，建议包含字母、数字和特殊字符
                 </div>
-              </div>
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                @click="saveBasicInfo"
-                :loading="savingBasic"
-                >保存信息</el-button
-              >
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-        <el-tab-pane label="修改密码" name="password">
-          <el-form
-            ref="passwordFormRef"
-            :model="passwordForm"
-            :rules="passwordRules"
-            label-width="120px"
-            class="password-form"
-          >
-            <el-form-item label="当前密码" prop="currentPassword">
-              <el-input
-                v-model="passwordForm.currentPassword"
-                type="password"
-                placeholder="请输入当前密码"
-                show-password
-              />
-            </el-form-item>
-            <el-form-item label="新密码" prop="newPassword">
-              <el-input
-                v-model="passwordForm.newPassword"
-                type="password"
-                placeholder="请输入新密码"
-                show-password
-              />
-              <div class="form-tip">
-                密码长度至少为6位，建议包含字母、数字和特殊字符
-              </div>
-            </el-form-item>
-            <el-form-item label="确认新密码" prop="confirmPassword">
-              <el-input
-                v-model="passwordForm.confirmPassword"
-                type="password"
-                placeholder="请再次输入新密码"
-                show-password
-              />
-            </el-form-item>
-            <el-form-item>
-              <el-button
-                type="primary"
-                @click="savePassword"
-                :loading="savingPassword"
-                >修改密码</el-button
-              >
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
+              </el-form-item>
+              <el-form-item label="确认新密码" prop="confirmPassword">
+                <el-input
+                  v-model="passwordForm.confirmPassword"
+                  type="password"
+                  placeholder="请再次输入新密码"
+                  show-password
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-button
+                  type="primary"
+                  @click="savePassword"
+                  :loading="savingPassword"
+                  >修改密码</el-button
+                >
+              </el-form-item>
+            </el-form>
+          </el-tab-pane>
+        </el-tabs>
+      </el-card>
+    </div>
   </div>
 </template>
 
@@ -108,9 +114,13 @@ import { ref, onMounted, computed } from "vue";
 import { ElMessage } from "element-plus";
 import { getTeacherInfo, updateTeacherInfo } from "@/api/teacher";
 import { changePassword } from "@/api/user";
+import AppHeader from "@/components/common/AppHeader.vue";
 
 export default {
   name: "ProfileSettings",
+  components: {
+    AppHeader,
+  },
   setup() {
     // 数据
     const activeTab = ref("basic");

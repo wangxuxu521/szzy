@@ -173,16 +173,17 @@ export function getResourceTypes() {
       return module.getAllTypes();
     })
     .then((response) => {
-      // 保持向后兼容的处理
+      // 处理不同格式的响应，确保返回包含typeId和typeName的对象数组
       if (response && response.data && Array.isArray(response.data)) {
-        // 转换为简单字符串数组以保持向后兼容
-        return response.data.map((type) => type.typeName);
+        return response.data;
       } else if (Array.isArray(response)) {
-        // 转换为简单字符串数组以保持向后兼容
-        return response.map((type) => type.typeName);
+        return response;
+      } else if (response && typeof response === "object") {
+        // 可能是封装在data字段中
+        return response.data || [];
       }
-      // 返回原始响应
-      return response;
+      // 返回空数组，避免错误
+      return [];
     });
 }
 

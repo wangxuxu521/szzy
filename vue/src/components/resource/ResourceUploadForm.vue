@@ -21,14 +21,12 @@
           style="width: 100%"
           filterable
         >
-          <el-option-group label="类型列表">
-            <el-option
-              v-for="type in resourceTypes"
-              :key="type.typeId"
-              :label="type.typeName"
-              :value="type.typeId"
-            ></el-option>
-          </el-option-group>
+          <el-option
+            v-for="type in resourceTypes"
+            :key="type.typeId"
+            :label="type.typeName"
+            :value="type.typeId"
+          ></el-option>
         </el-select>
       </el-form-item>
 
@@ -131,7 +129,7 @@ import { ref, reactive, computed, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { getTagList } from "@/api/tag";
 import { getAllTypes } from "@/api/type";
-import { getSystemConfig } from "@/api/system";
+import { getSystemConfigs } from "@/api/system";
 
 export default {
   name: "ResourceUploadForm",
@@ -305,7 +303,7 @@ export default {
     // 加载系统配置
     const loadSystemConfig = async () => {
       try {
-        const response = await getSystemConfig();
+        const response = await getSystemConfigs();
         if (response && response.code === 200 && response.data) {
           const configs = response.data;
 
@@ -383,11 +381,21 @@ export default {
 
         // 处理响应
         if (response && typeof response === "object") {
+          let typeData = [];
+
           if (Array.isArray(response)) {
-            resourceTypes.value = response;
+            typeData = response;
           } else if (response.data && Array.isArray(response.data)) {
-            resourceTypes.value = response.data;
+            typeData = response.data;
           }
+
+          // 确保只保留必要的字段，避免显示整个对象
+          resourceTypes.value = typeData.map((type) => ({
+            typeId: type.typeId,
+            typeName: type.typeName,
+          }));
+
+          console.log("加载类型成功:", resourceTypes.value);
         }
 
         // 如果没有获取到类型数据或数据为空，显示错误
