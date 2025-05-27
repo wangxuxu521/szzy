@@ -10,14 +10,14 @@ import java.util.List;
 public interface AnnouncementService {
     
     /**
-     * 查询所有公告
+     * 查找所有公告
      * @param limit 限制返回数量
      * @return 公告列表
      */
     List<Announcement> findAll(Integer limit);
     
     /**
-     * 根据ID查询公告
+     * 根据ID查找公告
      * @param id 公告ID
      * @return 公告对象
      */

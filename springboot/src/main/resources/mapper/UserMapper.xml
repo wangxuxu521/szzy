@@ -12,6 +12,11 @@
         <result property="name" column="name"/>
         <result property="role" column="role"/>
         <result property="createTime" column="create_time"/>
+        <result property="lastLoginTime" column="last_login_time"/>
+        <result property="email" column="email"/>
+        <result property="phone" column="phone"/>
+        <result property="avatar" column="avatar"/>
+        <result property="status" column="status"/>
     </resultMap>
 
     <select id="findById" parameterType="int" resultMap="UserResultMap">
@@ -41,6 +46,19 @@
 
     <select id="findByRole" resultMap="UserResultMap">
         SELECT * FROM user WHERE role = #{role}
+    </select>
+
+    <update id="updateLastLoginTime" parameterType="com.example.springboot.entity.User">
+        UPDATE user SET last_login_time=#{lastLoginTime} WHERE user_id=#{userId}
+    </update>
+
+    <!-- 根据ID列表查询用户 -->
+    <select id="findByIds" resultMap="UserResultMap">
+        SELECT * FROM user 
+        WHERE user_id IN
+        <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+            #{userId}
+        </foreach>
     </select>
 
 </mapper>

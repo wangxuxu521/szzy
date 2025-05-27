@@ -25,13 +25,13 @@ public class UserActionController {
     }
     
     @GetMapping("/user/{userId}")
-    public Result<?> findByUserId(@PathVariable Integer userId) {
+    public Result findByUserId(@PathVariable Integer userId) {
         List<UserAction> actions = userActionService.findByUserId(userId);
         return Result.success(actions);
     }
     
     @GetMapping("/resource/{resourceId}")
-    public Result<?> findByResourceId(@PathVariable Integer resourceId) {
+    public Result findByResourceId(@PathVariable Integer resourceId) {
         List<UserAction> actions = userActionService.findByResourceId(resourceId);
         return Result.success(actions);
     }
@@ -42,7 +42,7 @@ public class UserActionController {
     }
 
     @PostMapping
-    public Result<?> save(@RequestBody UserAction userAction) {
+    public Result save(@RequestBody UserAction userAction) {
         userActionService.save(userAction);
         return Result.success();
     }

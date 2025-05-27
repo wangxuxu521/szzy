@@ -1,16 +1,31 @@
 <template>
-  <div class="resource-card" @click="viewResource">
-    <div class="resource-type">{{ resource.type }}</div>
+  <div
+    class="resource-card"
+    @click="viewResource"
+    tabindex="0"
+    role="article"
+    aria-labelledby="resource-title"
+    @keyup.enter="viewResource"
+  >
+    <div class="resource-type" :class="getTypeClass(resource.type)">
+      {{ resource.type }}
+    </div>
     <div class="resource-content">
-      <h3 class="resource-title">{{ resource.title }}</h3>
+      <h3 class="resource-title" id="resource-title">{{ resource.title }}</h3>
       <div class="resource-info">
-        <span class="resource-author">{{ resource.author }}</span>
-        <span class="resource-views">👁 {{ resource.views }}</span>
+        <span class="resource-author">
+          <i class="el-icon-user"></i>
+          {{ resource.author || resource.uploaderName || "未知用户" }}
+        </span>
+        <span class="resource-views">
+          <i class="el-icon-view"></i>
+          {{ formatNumber(resource.viewCount || 0) }}
+        </span>
       </div>
       <p v-if="resource.description" class="resource-description">
         {{ truncateDescription(resource.description) }}
       </p>
-      <div class="resource-tags" v-if="resource.tags && resource.tags.length">
+      <div class="resource-tags" v-if="parsedTags.length">
         <span
           v-for="(tag, index) in parsedTags"
           :key="index"
@@ -21,6 +36,22 @@
           {{ tag }}
         </span>
       </div>
+      <div class="resource-actions">
+        <button
+          class="action-btn view-btn"
+          @click.stop="viewResource"
+          aria-label="查看资源详情"
+        >
+          <i class="el-icon-view"></i> 查看
+        </button>
+        <button
+          class="action-btn download-btn"
+          @click.stop="downloadResource"
+          aria-label="下载资源"
+        >
+          <i class="el-icon-download"></i> 下载
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -28,6 +59,8 @@
 <script>
 import { useRouter } from "vue-router";
 import { computed } from "vue";
+import { ElMessage } from "element-plus";
+import { downloadResource } from "@/api/resource";
 
 export default {
   name: "ResourceCard",
@@ -56,10 +89,21 @@ export default {
 
       // 如果是逗号分隔的字符串，转换为数组
       if (typeof props.resource.tags === "string") {
-        return props.resource.tags
-          .split(",")
-          .map((tag) => tag.replace(/["'\[\]]/g, "").trim())
-          .filter((tag) => tag);
+        // 尝试解析JSON字符串
+        try {
+          const parsedJson = JSON.parse(props.resource.tags);
+          if (Array.isArray(parsedJson)) {
+            return parsedJson
+              .map((tag) => tag.toString().trim())
+              .filter((tag) => tag);
+          }
+        } catch (e) {
+          // 如果解析JSON失败，当作普通逗号分隔字符串处理
+          return props.resource.tags
+            .split(",")
+            .map((tag) => tag.replace(/["'\[\]]/g, "").trim())
+            .filter((tag) => tag);
+        }
       }
 
       // 其他情况返回空数组
@@ -73,8 +117,37 @@ export default {
 
     const viewResource = () => {
       router.push({
-        path: `/resources/${props.resource.id}`,
+        path: `/resources/${props.resource.resourceId}`,
       });
+    };
+
+    // 下载资源
+    const downloadResource = async () => {
+      try {
+        ElMessage.info("正在准备下载...");
+        await downloadResource(props.resource.resourceId);
+        ElMessage.success("下载成功");
+      } catch (error) {
+        console.error("下载失败:", error);
+        ElMessage.error("下载失败，请稍后再试");
+      }
+    };
+
+    // 格式化数字
+    const formatNumber = (num) => {
+      if (num < 1000) return num;
+      if (num < 10000) return (num / 1000).toFixed(1) + "K";
+      return (num / 10000).toFixed(1) + "W";
+    };
+
+    // 获取资源类型样式类
+    const getTypeClass = (type) => {
+      const typeMap = {
+        计算机: "type-computer",
+        通信: "type-communication",
+        人工智能: "type-ai",
+      };
+      return typeMap[type] || "type-default";
     };
 
     // 根据标签内容确定标签类型和样式
@@ -152,9 +225,12 @@ export default {
     return {
       truncateDescription,
       viewResource,
+      downloadResource,
       getTagClass,
       getTagIcon,
       parsedTags,
+      formatNumber,
+      getTypeClass,
     };
   },
 };
@@ -170,11 +246,17 @@ export default {
   position: relative;
   cursor: pointer;
   margin-bottom: 1.5rem;
+  outline: none; /* 移除默认的focus轮廓 */
 }
 
-.resource-card:hover {
+.resource-card:hover,
+.resource-card:focus {
   transform: translateY(-5px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.resource-card:focus {
+  outline: 2px solid #1890ff; /* 自定义focus轮廓 */
 }
 
 .resource-type {
@@ -188,8 +270,22 @@ export default {
   font-size: 0.8rem;
 }
 
+.type-computer {
+  background-color: #1890ff;
+}
+.type-communication {
+  background-color: #52c41a;
+}
+.type-ai {
+  background-color: #722ed1;
+}
+.type-default {
+  background-color: #faad14;
+}
+
 .resource-content {
   padding: 1.5rem;
+  padding-top: 2rem;
 }
 
 .resource-title {
@@ -216,6 +312,7 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-bottom: 1rem;
 }
 
 .resource-tag {
@@ -259,9 +356,40 @@ export default {
   border-color: #ffd591;
 }
 
-.tag-default {
-  background-color: #f5f5f5;
-  color: #666;
-  border-color: #d9d9d9;
+.resource-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.action-btn {
+  background: none;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s;
+}
+
+.view-btn {
+  color: #1890ff;
+  border-color: #1890ff;
+}
+
+.view-btn:hover {
+  background-color: #e6f7ff;
+}
+
+.download-btn {
+  color: #52c41a;
+  border-color: #52c41a;
+}
+
+.download-btn:hover {
+  background-color: #f6ffed;
 }
 </style>

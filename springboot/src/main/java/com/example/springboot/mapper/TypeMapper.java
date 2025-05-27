@@ -37,4 +37,29 @@ public interface TypeMapper {
      * 查询类型是否已存在
      */
     Integer checkTypeNameExists(@Param("typeName") String typeName);
+    
+    /**
+     * 查询子类型列表
+     */
+    List<Type> findChildrenByParentId(Integer parentId);
+    
+    /**
+     * 检查是否有子类型
+     */
+    Integer countChildrenByParentId(Integer parentId);
+    
+    /**
+     * 获取类型树结构
+     */
+    List<Type> findTypeTree();
+    
+    /**
+     * 根据名称搜索类型
+     */
+    List<Type> searchByName(@Param("keyword") String keyword);
+    
+    /**
+     * 更新类型状态
+     */
+    void updateStatus(@Param("typeId") Integer typeId, @Param("status") Integer status);
 } 

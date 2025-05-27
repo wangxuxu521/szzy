@@ -12,14 +12,18 @@ public class Resource {
     private String fileName;    // 文件原始名称
     private Long fileSize;      // 文件大小(字节)
     private String format;      // 文件格式/扩展名
+    private Integer typeId;     // 资源类型ID，关联type表
     private Date uploadTime;    // 上传时间
+    private Date updateTime;    // 更新时间
     private Integer downloadCount; // 下载次数
     private Integer viewCount;  // 浏览次数
     private Float rating;       // 评分
+    private Integer ratingCount;
     private Integer uploaderId; // 上传者ID
+    private String uploaderName; // 上传者姓名，非数据库字段，通过JOIN查询获取
     private String reviewStatus; // 审核状态: pending, approved, rejected
-    private String type;        // 资源类型: 教学资源、教学案例、研究成果
-    private String tags;        // 标签，JSON格式的字符串
+    private String type;        // 资源类型: 教学资源、教学案例、研究成果 (将逐步迁移到typeId)
+    private String tags;        // 标签，JSON格式的字符串 (将逐步迁移到resource_tag表)
 
     // Getters and Setters
     public Integer getResourceId() {
@@ -62,12 +66,28 @@ public class Resource {
         this.format = format;
     }
 
+    public Integer getTypeId() {
+        return typeId;
+    }
+
+    public void setTypeId(Integer typeId) {
+        this.typeId = typeId;
+    }
+
     public Date getUploadTime() {
         return uploadTime;
     }
 
     public void setUploadTime(Date uploadTime) {
         this.uploadTime = uploadTime;
+    }
+
+    public Date getUpdateTime() {
+        return updateTime;
+    }
+
+    public void setUpdateTime(Date updateTime) {
+        this.updateTime = updateTime;
     }
 
     public Integer getDownloadCount() {
@@ -86,12 +106,28 @@ public class Resource {
         this.rating = rating;
     }
 
+    public Integer getRatingCount() {
+        return ratingCount;
+    }
+
+    public void setRatingCount(Integer ratingCount) {
+        this.ratingCount = ratingCount;
+    }
+
     public Integer getUploaderId() {
         return uploaderId;
     }
 
     public void setUploaderId(Integer uploaderId) {
         this.uploaderId = uploaderId;
+    }
+    
+    public String getUploaderName() {
+        return uploaderName;
+    }
+
+    public void setUploaderName(String uploaderName) {
+        this.uploaderName = uploaderName;
     }
 
     public String getReviewStatus() {

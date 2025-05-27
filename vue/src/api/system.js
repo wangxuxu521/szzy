@@ -2,7 +2,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from "./request";
 
 // 系统配置API
 export const getSystemConfigs = () => {
-  return apiGet("/system/configs");
+  return apiGet("/system-config");
 };
 
 export const getSystemConfigMap = () => {
@@ -10,15 +10,11 @@ export const getSystemConfigMap = () => {
 };
 
 export const getSystemConfigByKey = (key) => {
-  return apiGet(`/system/configs/${key}`);
+  return apiGet(`/system-config/key/${key}`);
 };
 
 export const saveSystemConfig = (config) => {
-  if (config.id) {
-    return apiPut(`/system/configs/${config.id}`, config);
-  } else {
-    return apiPost("/system/configs", config);
-  }
+  return apiPost("/system-config", config);
 };
 
 export const updateSystemConfig = (config) => {
@@ -30,7 +26,11 @@ export const updateSystemConfigValue = (configKey, configValue) => {
 };
 
 export const deleteSystemConfig = (id) => {
-  return apiDelete(`/system/configs/${id}`);
+  return apiDelete(`/system-config/${id}`);
+};
+
+export const deleteSystemConfigByKey = (configKey) => {
+  return apiDelete(`/system-config/key/${configKey}`);
 };
 
 export const getSystemConfigsByCategory = (category) => {
@@ -73,4 +73,17 @@ export const getResourceTypeCount = () => {
 
 export const getResourceTypeTrend = () => {
   return apiGet("/statistics/resource-type-trend");
+};
+
+// 统计相关API
+export const getResourceStatistics = () => {
+  return apiGet("/statistics/resources");
+};
+
+export const getUserStatistics = () => {
+  return apiGet("/statistics/users");
+};
+
+export const getActivityStatistics = (days = 7) => {
+  return apiGet(`/statistics/activity?days=${days}`);
 };

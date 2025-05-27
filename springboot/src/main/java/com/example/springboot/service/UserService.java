@@ -54,8 +54,10 @@ public class UserService {
             if (existingUser != null) {
                 throw new RuntimeException("用户名已存在");
             }
-            // 新增用户时加密密码
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            // 新增用户时加密密码(如果密码未加密)
+            if (!user.getPassword().startsWith("$2a$")) {
+                user.setPassword(passwordEncoder.encode(user.getPassword()));
+            }
             // 设置创建时间
             user.setCreateTime(new Date());
             userMapper.insert(user);
@@ -72,7 +74,8 @@ public class UserService {
                 throw new RuntimeException("用户名已被其他用户使用");
             }
             
-            if (!existingUser.getPassword().equals(user.getPassword())) {
+            // 如果密码发生变化且未加密，则进行加密
+            if (!existingUser.getPassword().equals(user.getPassword()) && !user.getPassword().startsWith("$2a$")) {
                 user.setPassword(passwordEncoder.encode(user.getPassword()));
             }
             userMapper.update(user);
@@ -102,25 +105,56 @@ public class UserService {
     public User login(String username, String password) {
         // 从数据库查询用户
         User user = userMapper.findByUsername(username);
-        System.out.println("查询到用户: " + user);
         
-        if (user != null) {
-            // 根据SQL中的数据，所有用户密码都是123456
-            // 检查密码是否匹配（优先检查明文密码）
-            if (password.equals(user.getPassword())) {
-                System.out.println("明文密码匹配成功");
-                return user;
-            }
-            
-            // 如果明文密码不匹配，尝试加密密码比较（以防万一密码已加密）
+        if (user == null) {
+            return null; // 用户不存在
+        }
+        
+        boolean passwordMatch = false;
+        
+        // 检查密码是否匹配
+        // 1. 判断数据库中密码是否是加密格式
+        if (user.getPassword().startsWith("$2a$")) {
+            // 使用加密密码比较
             if (passwordEncoder.matches(password, user.getPassword())) {
-                System.out.println("加密密码匹配成功");
-                return user;
+                passwordMatch = true;
+            }
+        } else {
+            // 数据库中存储的是明文密码，直接比较
+            if (password.equals(user.getPassword())) {
+                passwordMatch = true;
+                
+                // 找到用户且密码匹配，更新密码为加密格式
+                User updatedUser = new User();
+                updatedUser.setUserId(user.getUserId());
+                updatedUser.setPassword(passwordEncoder.encode(password));
+                try {
+                    userMapper.updatePassword(updatedUser);
+                    // 更新内存中的用户对象密码为加密后的值
+                    user.setPassword(updatedUser.getPassword());
+                } catch (Exception e) {
+                    // 密码更新失败，但不影响登录，只记录日志
+                    System.err.println("更新用户密码为加密格式失败: " + e.getMessage());
+                }
             }
         }
         
-        System.out.println("登录失败: 用户名或密码错误");
-        return null;
+        if (passwordMatch) {
+            return user;
+        }
+        
+        return null; // 密码不匹配
+    }
+
+    /**
+     * 更新用户最后登录时间
+     * @param user 用户对象
+     */
+    public void updateLastLoginTime(User user) {
+        if (user != null && user.getUserId() != null) {
+            user.setLastLoginTime(new Date());
+            userMapper.updateLastLoginTime(user);
+        }
     }
 
     /**

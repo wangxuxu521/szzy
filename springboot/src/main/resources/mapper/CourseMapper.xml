@@ -100,4 +100,8 @@
         DELETE FROM course WHERE course_id = #{courseId}
     </delete>
 
+    <select id="countByTeacherId" parameterType="int" resultType="int">
+        SELECT COUNT(*) FROM course WHERE teacher_id = #{teacherId}
+    </select>
+
 </mapper> 

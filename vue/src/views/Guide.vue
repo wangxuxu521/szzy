@@ -1,282 +1,486 @@
 <script>
+import { ref } from "vue";
+import BaseLayout from "@/layout/BaseLayout.vue";
+
 export default {
-  name: 'Guide',
-  data() {
-    return {
-      activeSection: 'student',
-      sections: [
-        {
-          id: 'student',
-          title: '学生指南',
-          icon: '👨‍🎓',
-          content: [
-            {
-              title: '如何浏览教学案例',
-              steps: [
-                '登录系统后，点击首页的"教学案例"链接',
-                '可以按学科分类浏览不同的教学案例',
-                '点击具体案例可以查看详细内容',
-                '可以通过搜索功能快速找到感兴趣的案例'
-              ]
-            },
-            {
-              title: '查看学习记录',
-              steps: [
-                '点击导航栏的"学生空间"',
-                '在个人中心可以查看历史学习记录',
-                '记录包含学习时间、进度等信息'
-              ]
-            }
-          ]
-        },
-        {
-          id: 'teacher',
-          title: '教师指南',
-          icon: '👨‍🏫',
-          content: [
-            {
-              title: '上传教学资源',
-              steps: [
-                '登录后进入"教师空间"',
-                '点击"上传资源"按钮',
-                '填写资源信息并上传文件',
-                '等待管理员审核通过'
-              ]
-            },
-            {
-              title: '管理教学案例',
-              steps: [
-                '在教师空间中查看已上传的案例',
-                '可以编辑或更新案例内容',
-                '查看案例的访问统计数据'
-              ]
-            }
-          ]
-        },
-        {
-          id: 'adminCenter',
-          title: '管理员指南',
-          icon: '👨‍💼',
-          content: [
-            {
-              title: '资源审核',
-              steps: [
-                '登录管理员界面',
-                '在"待审核"列表中查看新上传的资源',
-                '审核内容是否符合要求',
-                '通过或拒绝上传申请'
-              ]
-            },
-            {
-              title: '用户管理',
-              steps: [
-                '管理用户账号和权限',
-                '处理用户反馈和问题',
-                '查看系统使用统计数据'
-              ]
-            }
-          ]
-        }
-      ]
-    }
+  name: "Guide",
+  components: {
+    BaseLayout,
   },
-  methods: {
-    setSection(sectionId) {
-      this.activeSection = sectionId
-    }
-  }
-}
+  setup() {
+    // 可以在这里添加需要的响应式数据和方法
+    return {};
+  },
+};
 </script>
 
 <template>
-  <div class="guide">
-    <div class="guide-header">
-      <h1>使用指南</h1>
-      <p>欢迎使用课程思政资源管理系统，请选择您的身份查看相应的使用指南。</p>
-    </div>
+  <base-layout>
+    <div class="guide-container">
+      <h1 class="page-title">使用指南</h1>
 
-    <div class="guide-content">
-      <!-- 左侧导航 -->
-      <div class="guide-nav">
-        <button
-          v-for="section in sections"
-          :key="section.id"
-          :class="['nav-btn', { active: activeSection === section.id }]"
-          @click="setSection(section.id)"
-        >
-          <span class="icon">{{ section.icon }}</span>
-          {{ section.title }}
-        </button>
-      </div>
+      <el-tabs type="border-card" class="guide-tabs">
+        <el-tab-pane label="系统简介">
+          <div class="guide-section">
+            <h2>课程思政资源管理系统简介</h2>
+            <p class="guide-description">
+              欢迎使用课程思政资源管理系统！本系统旨在为高校教师和学生提供便捷的课程思政教学资源共享平台，
+              促进思政元素与专业课程的有机融合，共同构建优质的课程思政教学资源库。
+            </p>
 
-      <!-- 右侧内容 -->
-      <div class="guide-details">
-        <template v-for="section in sections" :key="section.id">
-          <div 
-            v-if="activeSection === section.id"
-            class="section-content"
-          >
-            <div class="section-header">
-              <span class="icon">{{ section.icon }}</span>
-              <h2>{{ section.title }}</h2>
-            </div>
+            <div class="guide-features">
+              <div class="feature-item">
+                <div class="feature-icon">📚</div>
+                <div class="feature-content">
+                  <h3>资源共享</h3>
+                  <p>
+                    提供多种类型的课程思政教学资源，支持多种格式的文件上传和下载
+                  </p>
+                </div>
+              </div>
 
-            <div class="guide-items">
-              <div 
-                v-for="(item, index) in section.content"
-                :key="index"
-                class="guide-item"
-              >
-                <h3>{{ item.title }}</h3>
-                <ol class="steps">
-                  <li 
-                    v-for="(step, stepIndex) in item.steps"
-                    :key="stepIndex"
-                  >
-                    {{ step }}
-                  </li>
-                </ol>
+              <div class="feature-item">
+                <div class="feature-icon">👤</div>
+                <div class="feature-content">
+                  <h3>角色权限</h3>
+                  <p>
+                    系统支持管理员、教师和学生三种角色，各角色拥有不同的操作权限
+                  </p>
+                </div>
+              </div>
+
+              <div class="feature-item">
+                <div class="feature-icon">🔍</div>
+                <div class="feature-content">
+                  <h3>智能检索</h3>
+                  <p>提供多维度的资源检索功能，方便用户快速找到所需资源</p>
+                </div>
+              </div>
+
+              <div class="feature-item">
+                <div class="feature-icon">🔄</div>
+                <div class="feature-content">
+                  <h3>资源审核</h3>
+                  <p>确保资源质量，管理员可对上传的资源进行审核</p>
+                </div>
               </div>
             </div>
           </div>
-        </template>
-      </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="学生使用指南">
+          <div class="guide-section">
+            <h2>学生使用指南</h2>
+
+            <div class="guide-steps">
+              <div class="step-item">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                  <h3>注册和登录</h3>
+                  <p>
+                    访问系统首页，点击"注册"按钮，填写相关信息完成注册。注册成功后，使用账号和密码登录系统。
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                  <h3>资源浏览和检索</h3>
+                  <p>
+                    在首页或资源库页面浏览资源，可使用关键词搜索、分类筛选等方式快速找到所需资源。
+                    点击资源卡片可查看资源详情。
+                  </p>
+                  <div class="step-image">
+                    <img
+                      src="@/assets/guide/student-browse.png"
+                      alt="资源浏览"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                  <h3>资源下载</h3>
+                  <p>
+                    在资源详情页，点击"下载"按钮即可下载资源。系统会记录您的下载历史，
+                    可在个人中心查看下载记录。
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                  <h3>收藏与评论</h3>
+                  <p>
+                    您可以收藏喜欢的资源，并对资源进行评论和打分，分享您的使用体验和建议。
+                    所有收藏的资源都可以在个人中心的"我的收藏"中查看。
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                  <h3>个人中心</h3>
+                  <p>
+                    在个人中心，您可以修改个人资料、查看下载历史、管理收藏资源等。
+                    点击右上角的用户头像，选择"个人中心"即可进入。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="教师使用指南">
+          <div class="guide-section">
+            <h2>教师使用指南</h2>
+
+            <div class="guide-steps">
+              <div class="step-item">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                  <h3>账号注册与认证</h3>
+                  <p>
+                    教师账号需要管理员进行角色认证。请联系系统管理员获取教师权限，
+                    或者在注册时选择"教师"角色，等待管理员审核。
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                  <h3>资源上传</h3>
+                  <p>
+                    点击首页或资源库页面的"上传资源"按钮，填写资源信息，上传文件。
+                    资源上传后需经过管理员审核才能公开展示。
+                  </p>
+                  <div class="step-image">
+                    <img
+                      src="@/assets/guide/teacher-upload.png"
+                      alt="资源上传"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                  <h3>资源管理</h3>
+                  <p>
+                    在个人中心的"我的资源"页面，您可以查看、编辑、删除您上传的资源，
+                    还可以查看资源的审核状态和使用统计数据。
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                  <h3>资源收藏与分享</h3>
+                  <p>
+                    与学生一样，教师也可以收藏和评论资源。此外，教师可以将系统中的资源
+                    分享给学生，促进教学资源的有效利用。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="管理员使用指南">
+          <div class="guide-section">
+            <h2>管理员使用指南</h2>
+
+            <div class="guide-steps">
+              <div class="step-item">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                  <h3>用户管理</h3>
+                  <p>
+                    在管理后台的"用户管理"页面，可以查看、编辑用户信息，
+                    审核用户角色申请，设置用户权限等。
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                  <h3>资源审核</h3>
+                  <p>
+                    在"资源审核"页面，可以查看待审核的资源，进行审核操作，
+                    并可对不符合要求的资源提供审核意见。
+                  </p>
+                  <div class="step-image">
+                    <img src="@/assets/guide/admin-review.png" alt="资源审核" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                  <h3>类型管理</h3>
+                  <p>
+                    在"类型管理"页面，可以创建、编辑和删除资源类型，
+                    对系统的资源分类体系进行管理。
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                  <h3>系统设置</h3>
+                  <p>
+                    在"系统设置"页面，可以配置系统参数，如是否开放注册、
+                    资源上传大小限制、允许的文件类型等。
+                  </p>
+                </div>
+              </div>
+
+              <div class="step-item">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                  <h3>数据统计</h3>
+                  <p>
+                    在"数据统计"页面，可以查看系统使用情况的统计数据，
+                    如用户活跃度、资源使用情况等。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="常见问题">
+          <div class="guide-section">
+            <h2>常见问题解答</h2>
+
+            <el-collapse accordion>
+              <el-collapse-item title="1. 如何注册和登录系统？" name="1">
+                <div class="faq-answer">
+                  <p>
+                    访问系统首页，点击右上角的"注册"按钮，填写用户名、密码等信息完成注册。
+                    注册成功后，使用账号和密码在登录页面登录系统。如系统未开放注册，请联系管理员获取账号。
+                  </p>
+                </div>
+              </el-collapse-item>
+
+              <el-collapse-item title="2. 忘记密码怎么办？" name="2">
+                <div class="faq-answer">
+                  <p>
+                    在登录页面点击"忘记密码"，按照提示填写注册邮箱，系统会发送密码重置链接到您的邮箱。
+                    如无法收到邮件，请联系管理员处理。
+                  </p>
+                </div>
+              </el-collapse-item>
+
+              <el-collapse-item
+                title="3. 为什么我上传的资源需要审核？"
+                name="3"
+              >
+                <div class="faq-answer">
+                  <p>
+                    为了保证资源质量和内容合规性，系统对所有上传的资源进行审核。
+                    审核通过后，资源才会公开展示给其他用户。审核时间通常在1-3个工作日内完成。
+                  </p>
+                </div>
+              </el-collapse-item>
+
+              <el-collapse-item title="4. 支持哪些类型的文件上传？" name="4">
+                <div class="faq-answer">
+                  <p>系统支持多种文件格式上传，包括但不限于：</p>
+                  <ul>
+                    <li>文档类：PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT</li>
+                    <li>图片类：JPG, JPEG, PNG, GIF</li>
+                    <li>音视频类：MP4, MP3</li>
+                    <li>压缩文件：ZIP, RAR</li>
+                  </ul>
+                  <p>
+                    单个文件大小限制为50MB，如需上传更大文件，请联系管理员。
+                  </p>
+                </div>
+              </el-collapse-item>
+
+              <el-collapse-item title="5. 如何联系系统管理员？" name="5">
+                <div class="faq-answer">
+                  <p>您可以通过以下方式联系系统管理员：</p>
+                  <ul>
+                    <li>发送邮件至：admin@example.com</li>
+                    <li>系统内留言：在"关于"页面填写反馈表单</li>
+                    <li>电话联系：123-4567-8910（工作日9:00-17:00）</li>
+                  </ul>
+                </div>
+              </el-collapse-item>
+            </el-collapse>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
     </div>
-  </div>
+  </base-layout>
 </template>
 
 <style scoped>
-.guide {
-  padding: 2rem;
-  min-height: 100vh;
-  background-color: #f0f2f5;
-}
-
-.guide-header {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.guide-header h1 {
-  color: #2c3e50;
-  margin-bottom: 1rem;
-}
-
-.guide-header p {
-  color: #666;
-  font-size: 1.1rem;
-}
-
-.guide-content {
+.guide-container {
   max-width: 1200px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: 250px 1fr;
-  gap: 2rem;
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
+  padding: 20px;
 }
 
-.guide-nav {
-  padding: 1.5rem;
-  border-right: 1px solid #f0f0f0;
-  background-color: #fafafa;
+.page-title {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #333;
+  font-size: 28px;
 }
 
-.nav-btn {
-  width: 100%;
-  padding: 1rem;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: 4px;
+.guide-tabs {
+  margin-bottom: 30px;
+}
+
+.guide-section {
+  padding: 20px;
+}
+
+.guide-section h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 22px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 10px;
+}
+
+.guide-description {
+  font-size: 16px;
+  line-height: 1.6;
   color: #666;
-  cursor: pointer;
-  transition: all 0.3s;
-  text-align: left;
+  margin-bottom: 30px;
 }
 
-.nav-btn:hover {
-  color: #1890ff;
-  background-color: #e6f7ff;
+.guide-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
 }
 
-.nav-btn.active {
-  color: #1890ff;
-  background-color: #e6f7ff;
-  border-color: #1890ff;
+.feature-item {
+  display: flex;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 20px;
+  transition: transform 0.3s ease;
 }
 
-.icon {
-  font-size: 1.2rem;
+.feature-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
-.guide-details {
-  padding: 2rem;
+.feature-icon {
+  font-size: 36px;
+  margin-right: 15px;
 }
 
-.section-header {
+.feature-content h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.feature-content p {
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+}
+
+.guide-steps {
+  margin-top: 30px;
+}
+
+.step-item {
+  display: flex;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.step-number {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #f0f0f0;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: #409eff;
+  color: white;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: bold;
+  margin-right: 20px;
+  flex-shrink: 0;
 }
 
-.section-header h2 {
-  margin: 0;
-  color: #2c3e50;
+.step-content {
+  flex: 1;
 }
 
-.guide-items {
-  display: grid;
-  gap: 2rem;
+.step-content h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
 }
 
-.guide-item {
-  background-color: #fafafa;
-  padding: 1.5rem;
-  border-radius: 8px;
-}
-
-.guide-item h3 {
-  color: #2c3e50;
-  margin: 0 0 1rem 0;
-}
-
-.steps {
-  margin: 0;
-  padding-left: 1.5rem;
-}
-
-.steps li {
+.step-content p {
   color: #666;
   line-height: 1.6;
-  margin-bottom: 0.5rem;
+  margin-bottom: 15px;
 }
 
-.steps li:last-child {
-  margin-bottom: 0;
+.step-image {
+  margin-top: 15px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.step-image img {
+  max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.faq-answer {
+  padding: 10px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.faq-answer ul {
+  padding-left: 20px;
+}
+
+.faq-answer li {
+  margin-bottom: 5px;
 }
 
 @media (max-width: 768px) {
-  .guide-content {
+  .guide-features {
     grid-template-columns: 1fr;
   }
 
-  .guide-nav {
-    border-right: none;
-    border-bottom: 1px solid #f0f0f0;
+  .step-item {
+    flex-direction: column;
   }
 
-  .nav-btn {
-    padding: 0.8rem;
+  .step-number {
+    margin-bottom: 10px;
   }
 }
-</style> 
+</style>

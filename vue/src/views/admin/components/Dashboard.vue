@@ -10,8 +10,10 @@
         <div class="stat-icon">👥</div>
         <div class="stat-data">
           <h3>用户总数</h3>
-          <div class="stat-value">{{ stats.userCount }}</div>
-          <div class="stat-change up">+{{ stats.userGrowth }}%</div>
+          <div class="stat-value">{{ summary.totalUsers || 0 }}</div>
+          <div class="stat-change up">
+            活跃用户: {{ summary.activeUsers || 0 }}
+          </div>
         </div>
       </div>
 
@@ -19,17 +21,10 @@
         <div class="stat-icon">📚</div>
         <div class="stat-data">
           <h3>资源总数</h3>
-          <div class="stat-value">{{ stats.resourceCount }}</div>
-          <div class="stat-change up">+{{ stats.resourceGrowth }}%</div>
-        </div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-icon">👁️</div>
-        <div class="stat-data">
-          <h3>访问量</h3>
-          <div class="stat-value">{{ stats.visitCount }}</div>
-          <div class="stat-change up">+{{ stats.visitGrowth }}%</div>
+          <div class="stat-value">{{ summary.totalResources || 0 }}</div>
+          <div class="stat-change up">
+            今日新增: {{ summary.todayResources || 0 }}
+          </div>
         </div>
       </div>
 
@@ -37,67 +32,89 @@
         <div class="stat-icon">⬇️</div>
         <div class="stat-data">
           <h3>资源下载</h3>
-          <div class="stat-value">{{ stats.downloadCount }}</div>
-          <div class="stat-change down">-{{ stats.downloadDecrease }}%</div>
+          <div class="stat-value">{{ summary.totalDownloads || 0 }}</div>
+          <div class="stat-change up">总下载次数</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">🔎</div>
+        <div class="stat-data">
+          <h3>资源审核</h3>
+          <div class="stat-value">
+            {{ resourceCountData.statusCount?.approved || 0 }}
+          </div>
+          <div class="stat-change">
+            待审核: {{ resourceCountData.statusCount?.pending || 0 }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-row">
+      <div class="dashboard-card resource-trend">
+        <h3>资源上传趋势 (近30天)</h3>
+        <div class="chart-container">
+          <div v-if="loading" class="loading">加载中...</div>
+          <div v-else ref="trendChartRef" class="echarts-container"></div>
+        </div>
+      </div>
+
+      <div class="dashboard-card user-types">
+        <h3>资源类型分布</h3>
+        <div class="chart-container">
+          <div v-if="loading" class="loading">加载中...</div>
+          <div v-else ref="pieChartRef" class="echarts-container"></div>
         </div>
       </div>
     </div>
 
     <div class="dashboard-row">
       <div class="dashboard-card recent-actions">
-        <h3>最近操作</h3>
-        <div class="action-list">
+        <h3>用户行为统计</h3>
+        <div v-if="loading" class="loading">加载中...</div>
+        <div v-else class="action-stats">
           <div
-            class="action-item"
-            v-for="(action, index) in recentActions"
+            v-for="(count, actionType) in userActionsData.actionTypeCount"
+            :key="actionType"
+            class="action-stat-item"
+          >
+            <div class="action-type">{{ getActionTypeLabel(actionType) }}</div>
+            <div class="action-count">{{ count }}</div>
+            <div class="action-bar">
+              <div
+                class="action-bar-value"
+                :style="{
+                  width:
+                    calculateActionBarWidth(
+                      count,
+                      userActionsData.totalActions
+                    ) + '%',
+                  backgroundColor: getActionTypeColor(actionType),
+                }"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-card resource-rankings">
+        <h3>热门资源排行</h3>
+        <div v-if="loading" class="loading">加载中...</div>
+        <div v-else class="ranking-list">
+          <div
+            class="ranking-item"
+            v-for="(resource, index) in topResourcesData"
             :key="index"
           >
-            <div class="action-time">{{ action.time }}</div>
-            <div class="action-content">
-              <div class="action-user">{{ action.user }}</div>
-              <div class="action-description">{{ action.description }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="dashboard-card user-types">
-        <h3>用户类型分布</h3>
-        <div class="chart-container">
-          <div class="chart-placeholder">用户类型统计图表</div>
-          <div class="chart-legend">
-            <div class="legend-item">
-              <div class="legend-color admin"></div>
-              <div class="legend-label">管理员: {{ userTypes.admin }}%</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color teacher"></div>
-              <div class="legend-label">教师: {{ userTypes.teacher }}%</div>
-            </div>
-            <div class="legend-item">
-              <div class="legend-color student"></div>
-              <div class="legend-label">学生: {{ userTypes.student }}%</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="dashboard-card resource-rankings">
-      <h3>热门资源排行</h3>
-      <div class="ranking-list">
-        <div
-          class="ranking-item"
-          v-for="(resource, index) in topResources"
-          :key="index"
-        >
-          <div class="ranking-number">{{ index + 1 }}</div>
-          <div class="ranking-content">
-            <div class="ranking-title">{{ resource.title }}</div>
-            <div class="ranking-info">
-              <span>{{ resource.author }}</span>
-              <span>{{ resource.views }} 次浏览</span>
-              <span>{{ resource.downloads }} 次下载</span>
+            <div class="ranking-number">{{ index + 1 }}</div>
+            <div class="ranking-content">
+              <div class="ranking-title">
+                {{ resource.title || "资源 #" + resource.resourceId }}
+              </div>
+              <div class="ranking-info">
+                <span>{{ resource.count }} 次操作</span>
+              </div>
             </div>
           </div>
         </div>
@@ -107,94 +124,335 @@
 </template>
 
 <script>
-import { ref } from "vue";
+import { ref, onMounted, reactive, nextTick, onBeforeUnmount } from "vue";
+import * as echarts from "echarts/core";
+import { PieChart, BarChart, LineChart } from "echarts/charts";
+import {
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+} from "echarts/components";
+import { LabelLayout } from "echarts/features";
+import { CanvasRenderer } from "echarts/renderers";
+import {
+  getSystemSummary,
+  getResourceCount,
+  getResourceTrend,
+  getUserActions,
+  getResourceTypeCount,
+} from "@/api/statistics";
+
+// 注册必需的组件
+echarts.use([
+  TitleComponent,
+  TooltipComponent,
+  LegendComponent,
+  GridComponent,
+  PieChart,
+  BarChart,
+  LineChart,
+  LabelLayout,
+  CanvasRenderer,
+]);
 
 export default {
   name: "AdminDashboard",
   setup() {
-    const stats = ref({
-      userCount: 1238,
-      userGrowth: 5.2,
-      resourceCount: 3567,
-      resourceGrowth: 12.7,
-      visitCount: 45892,
-      visitGrowth: 8.3,
-      downloadCount: 12543,
-      downloadDecrease: 2.1,
+    const loading = ref(true);
+    const summary = ref({});
+    const resourceCountData = ref({});
+    const resourceTrendData = ref({});
+    const userActionsData = ref({});
+    const resourceTypeData = ref({});
+    const topResourcesData = ref([]);
+    const colorCache = reactive({});
+    const trendChartRef = ref(null);
+    const pieChartRef = ref(null);
+    const trendChart = ref(null);
+    const pieChart = ref(null);
+
+    // 获取所有统计数据
+    const fetchAllData = async () => {
+      loading.value = true;
+      try {
+        // 并行请求所有数据
+        const [summaryRes, resourceCountRes, resourceTrendRes, userActionsRes] =
+          await Promise.all([
+            getSystemSummary(),
+            getResourceCount(),
+            getResourceTrend(30),
+            getUserActions(),
+          ]);
+
+        summary.value = summaryRes.data;
+        resourceCountData.value = resourceCountRes.data;
+        resourceTrendData.value = resourceTrendRes.data;
+        userActionsData.value = userActionsRes.data;
+
+        // 处理热门资源数据
+        if (userActionsData.value && userActionsData.value.topResources) {
+          topResourcesData.value = userActionsData.value.topResources.map(
+            (item) => ({
+              resourceId: item[0],
+              count: item[1],
+              title: `资源 #${item[0]}`, // 这里可以通过额外请求获取资源标题
+            })
+          );
+        }
+
+        // 数据加载完成后初始化图表
+        await nextTick();
+        initTrendChart();
+        initPieChart();
+      } catch (error) {
+        console.error("获取统计数据失败:", error);
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    // 格式化日期，只显示月/日
+    const formatDate = (dateStr) => {
+      const parts = dateStr.split("-");
+      return `${parts[1]}/${parts[2]}`;
+    };
+
+    // 计算百分比
+    const calculatePercentage = (value, total) => {
+      if (!total) return 0;
+      return Math.round((value / total) * 100);
+    };
+
+    // 计算柱状图高度
+    const calculateBarHeight = (count) => {
+      const max = Object.values(
+        resourceTrendData.value?.uploadTrend || {}
+      ).reduce((max, current) => Math.max(max, current), 1);
+      return (count / max) * 100;
+    };
+
+    // 计算操作条宽度
+    const calculateActionBarWidth = (count, total) => {
+      if (!total) return 0;
+      return (count / total) * 100;
+    };
+
+    // 获取随机颜色，但对相同类型保持一致
+    const getRandomColor = (key) => {
+      if (!colorCache[key]) {
+        colorCache[key] = `hsl(${Math.floor(Math.random() * 360)}, 70%, 50%)`;
+      }
+      return colorCache[key];
+    };
+
+    // 获取操作类型标签
+    const getActionTypeLabel = (type) => {
+      const labels = {
+        view: "查看",
+        download: "下载",
+        comment: "评论",
+        rate: "评分",
+        share: "分享",
+      };
+      return labels[type] || type;
+    };
+
+    // 获取操作类型颜色
+    const getActionTypeColor = (type) => {
+      const colors = {
+        view: "#1890ff",
+        download: "#52c41a",
+        comment: "#faad14",
+        rate: "#722ed1",
+        share: "#eb2f96",
+      };
+      return colors[type] || getRandomColor(type);
+    };
+
+    // 初始化趋势图表
+    const initTrendChart = () => {
+      if (!trendChartRef.value) return;
+
+      // 如果图表已经存在，先销毁
+      if (trendChart.value) {
+        trendChart.value.dispose();
+      }
+
+      trendChart.value = echarts.init(trendChartRef.value);
+
+      const dates = Object.keys(
+        resourceTrendData.value.uploadTrend || {}
+      ).sort();
+      const values = dates.map(
+        (date) => resourceTrendData.value.uploadTrend[date]
+      );
+
+      const option = {
+        tooltip: {
+          trigger: "axis",
+          axisPointer: {
+            type: "shadow",
+          },
+        },
+        grid: {
+          left: "3%",
+          right: "4%",
+          bottom: "3%",
+          containLabel: true,
+        },
+        xAxis: {
+          type: "category",
+          data: dates.map((date) => formatDate(date)),
+          axisLabel: {
+            rotate: 45,
+            interval: "auto",
+          },
+        },
+        yAxis: {
+          type: "value",
+          name: "资源数量",
+        },
+        series: [
+          {
+            name: "上传资源数",
+            type: "line",
+            data: values,
+            itemStyle: {
+              color: "#1890ff",
+            },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: "rgba(24, 144, 255, 0.5)" },
+                { offset: 1, color: "rgba(24, 144, 255, 0.1)" },
+              ]),
+            },
+            smooth: true,
+          },
+        ],
+      };
+
+      trendChart.value.setOption(option);
+
+      // 添加窗口大小改变事件监听
+      window.addEventListener("resize", () => {
+        trendChart.value && trendChart.value.resize();
+      });
+    };
+
+    // 初始化饼图
+    const initPieChart = () => {
+      if (!pieChartRef.value) return;
+
+      // 如果图表已经存在，先销毁
+      if (pieChart.value) {
+        pieChart.value.dispose();
+      }
+
+      pieChart.value = echarts.init(pieChartRef.value);
+
+      const typeData = resourceCountData.value.typeCount;
+      if (!typeData) return;
+
+      const pieData = Object.entries(typeData).map(([name, value]) => ({
+        name,
+        value,
+      }));
+
+      const option = {
+        tooltip: {
+          trigger: "item",
+          formatter: "{a} <br/>{b}: {c} ({d}%)",
+        },
+        legend: {
+          orient: "vertical",
+          right: 10,
+          top: "center",
+          data: pieData.map((item) => item.name),
+        },
+        series: [
+          {
+            name: "资源类型",
+            type: "pie",
+            radius: ["40%", "70%"],
+            avoidLabelOverlap: false,
+            itemStyle: {
+              borderRadius: 10,
+              borderColor: "#fff",
+              borderWidth: 2,
+            },
+            label: {
+              show: false,
+              position: "center",
+            },
+            emphasis: {
+              label: {
+                show: true,
+                fontSize: "18",
+                fontWeight: "bold",
+              },
+            },
+            labelLine: {
+              show: false,
+            },
+            data: pieData,
+          },
+        ],
+      };
+
+      pieChart.value.setOption(option);
+
+      // 添加窗口大小改变事件监听
+      window.addEventListener("resize", () => {
+        pieChart.value && pieChart.value.resize();
+      });
+    };
+
+    // 监听窗口大小变化，重新调整图表大小
+    const handleResize = () => {
+      trendChart.value?.resize();
+      pieChart.value?.resize();
+    };
+
+    // 组件挂载后执行
+    onMounted(() => {
+      fetchAllData();
     });
 
-    const userTypes = ref({
-      admin: 5,
-      teacher: 35,
-      student: 60,
+    // 组件卸载前清理资源
+    onBeforeUnmount(() => {
+      // 销毁图表实例，避免内存泄漏
+      if (trendChart.value) {
+        trendChart.value.dispose();
+        trendChart.value = null;
+      }
+
+      if (pieChart.value) {
+        pieChart.value.dispose();
+        pieChart.value = null;
+      }
+
+      // 移除事件监听器
+      window.removeEventListener("resize", () => {});
     });
-
-    const recentActions = ref([
-      {
-        time: "10:30",
-        user: "张教授",
-        description: '上传了资源"数据库原理与社会责任"',
-      },
-      {
-        time: "09:15",
-        user: "李教授",
-        description: '更新了资源"计算机网络中的爱国情怀"',
-      },
-      {
-        time: "昨天",
-        user: "管理员",
-        description: "审核通过了5个新资源",
-      },
-      {
-        time: "昨天",
-        user: "王教授",
-        description: '上传了案例"程序设计与逻辑思维培养"',
-      },
-      {
-        time: "前天",
-        user: "系统",
-        description: "系统自动备份完成",
-      },
-    ]);
-
-    const topResources = ref([
-      {
-        title: "计算机网络中的爱国情怀",
-        author: "张教授",
-        views: 1234,
-        downloads: 567,
-      },
-      {
-        title: "数据结构与民族精神",
-        author: "李教授",
-        views: 1056,
-        downloads: 489,
-      },
-      {
-        title: "人工智能伦理与价值观",
-        author: "王教授",
-        views: 987,
-        downloads: 421,
-      },
-      {
-        title: "软件工程与团队协作",
-        author: "赵教授",
-        views: 876,
-        downloads: 356,
-      },
-      {
-        title: "数据科学与社会责任",
-        author: "周教授",
-        views: 765,
-        downloads: 301,
-      },
-    ]);
 
     return {
-      stats,
-      userTypes,
-      recentActions,
-      topResources,
+      loading,
+      summary,
+      resourceCountData,
+      resourceTrendData,
+      userActionsData,
+      resourceTypeData,
+      topResourcesData,
+      formatDate,
+      calculatePercentage,
+      calculateBarHeight,
+      calculateActionBarWidth,
+      getRandomColor,
+      getActionTypeLabel,
+      getActionTypeColor,
+      trendChartRef,
+      pieChartRef,
     };
   },
 };
@@ -251,14 +509,13 @@ export default {
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: bold;
   margin: 0.5rem 0;
 }
 
 .stat-change {
-  font-size: 0.9rem;
-  font-weight: bold;
+  font-size: 0.8rem;
 }
 
 .stat-change.up {
@@ -271,9 +528,9 @@ export default {
 
 .dashboard-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(45%, 1fr));
   grid-gap: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .dashboard-card {
@@ -285,117 +542,137 @@ export default {
 
 .dashboard-card h3 {
   margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
   color: #333;
-  border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 0.8rem;
-}
-
-.action-list {
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.action-item {
-  display: flex;
-  padding: 0.8rem 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.action-item:last-child {
-  border-bottom: none;
-}
-
-.action-time {
-  width: 60px;
-  color: #999;
-  flex-shrink: 0;
-}
-
-.action-content {
-  flex: 1;
-}
-
-.action-user {
-  font-weight: bold;
-  margin-bottom: 0.3rem;
-}
-
-.action-description {
-  color: #666;
 }
 
 .chart-container {
-  height: 300px;
-  display: flex;
-  flex-direction: column;
+  height: 250px;
+  position: relative;
 }
 
-.chart-placeholder {
-  flex: 1;
+.loading {
   display: flex;
-  align-items: center;
   justify-content: center;
-  background-color: #f9f9f9;
-  border-radius: 4px;
+  align-items: center;
+  height: 100%;
   color: #999;
 }
 
-.chart-legend {
-  margin-top: 1rem;
+/* 趋势图表样式 */
+.trend-chart {
+  display: flex;
+  height: 200px;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.trend-bar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.trend-bar-value {
+  width: 80%;
+  background-color: #1890ff;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.3s ease;
+}
+
+.trend-bar-date {
+  font-size: 10px;
+  margin-top: 5px;
+  transform: rotate(-45deg);
+  white-space: nowrap;
+}
+
+/* 饼图图例样式 */
+.pie-chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .legend-item {
   display: flex;
   align-items: center;
-  margin-bottom: 0.5rem;
 }
 
 .legend-color {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 4px;
-  margin-right: 0.5rem;
+  margin-right: 8px;
 }
 
-.legend-color.admin {
-  background-color: #1890ff;
+.legend-label {
+  font-size: 0.9rem;
 }
 
-.legend-color.teacher {
-  background-color: #52c41a;
+/* 用户行为统计样式 */
+.action-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
-.legend-color.student {
-  background-color: #faad14;
+.action-stat-item {
+  display: flex;
+  flex-direction: column;
 }
 
+.action-type {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.action-count {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.action-bar {
+  height: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.action-bar-value {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* 排行榜样式 */
 .ranking-list {
-  max-height: 400px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .ranking-item {
   display: flex;
-  padding: 1rem 0;
+  align-items: center;
+  padding-bottom: 10px;
   border-bottom: 1px solid #f0f0f0;
 }
 
-.ranking-item:last-child {
-  border-bottom: none;
-}
-
 .ranking-number {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
   background-color: #f0f0f0;
+  border-radius: 50%;
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   font-weight: bold;
-  margin-right: 1rem;
+  margin-right: 12px;
 }
 
 .ranking-item:nth-child(1) .ranking-number {
@@ -419,21 +696,20 @@ export default {
 
 .ranking-title {
   font-weight: bold;
-  margin-bottom: 0.5rem;
+  margin-bottom: 5px;
 }
 
 .ranking-info {
-  color: #666;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  color: #999;
 }
 
 .ranking-info span {
-  margin-right: 1rem;
+  margin-right: 10px;
 }
 
-@media (max-width: 768px) {
-  .dashboard-row {
-    grid-template-columns: 1fr;
-  }
+.echarts-container {
+  width: 100%;
+  height: 100%;
 }
 </style>

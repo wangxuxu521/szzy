@@ -27,17 +27,18 @@ const router = createRouter({
 });
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   // 设置页面标题
   document.title = to.meta.title || "课程思政资源管理系统";
 
   // 获取用户信息
   const isLoggedIn = store.getters["user/isLoggedIn"];
   const userRole = store.getters["user/userRole"];
+  const token = store.getters["user/token"];
 
   // 登录页面逻辑
   if (to.path === "/login") {
-    if (isLoggedIn) {
+    if (isLoggedIn && token) {
       next("/");
       return;
     }
@@ -47,7 +48,11 @@ router.beforeEach((to, from, next) => {
 
   // 检查页面是否需要认证
   if (to.meta.requiresAuth) {
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !token) {
+      // 如果用户声称已登录但没有令牌，先清除登录状态
+      if (isLoggedIn && !token) {
+        await store.dispatch("user/logout");
+      }
       next("/login");
       return;
     }

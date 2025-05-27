@@ -9,12 +9,19 @@
           placeholder="搜索资源..."
           @keyup.enter="handleSearch"
         />
-        <select v-model="resourceTypeFilter" @change="handleSearch">
-          <option value="">所有类型</option>
-          <option v-for="type in resourceTypes" :key="type" :value="type">
-            {{ type }}
-          </option>
-        </select>
+        <el-select
+          v-model="resourceTypeFilter"
+          placeholder="筛选类型"
+          clearable
+        >
+          <el-option value="" label="全部类型" />
+          <el-option
+            v-for="type in resourceTypes"
+            :key="type.typeId"
+            :label="type.typeName"
+            :value="type.typeId"
+          />
+        </el-select>
         <button class="search-btn" @click="handleSearch">搜索</button>
       </div>
       <button class="add-btn" @click="showAddResourceModal = true">
@@ -435,8 +442,10 @@ import {
   downloadResource,
   getResourcePreviewUrl,
   checkPreviewSupport,
+  updateResourceReviewStatus,
 } from "@/api/resource";
 import { ElMessage, ElLoading } from "element-plus";
+import { getAllTypes } from "@/api/type";
 
 export default {
   name: "ResourceManagement",
@@ -477,21 +486,63 @@ export default {
     // 加载资源类型
     const loadResourceTypes = async () => {
       try {
-        const response = await getResourceTypes();
+        const response = await getAllTypes();
         if (response && typeof response === "object") {
           if (Array.isArray(response)) {
             resourceTypes.value = response;
           } else if (response.data && Array.isArray(response.data)) {
             resourceTypes.value = response.data;
+          } else if (response.code === 200 && Array.isArray(response.data)) {
+            resourceTypes.value = response.data;
+          }
+        }
+
+        // 确保类型数据格式正确
+        if (resourceTypes.value && resourceTypes.value.length > 0) {
+          // 检查是否每个类型都有typeId和typeName
+          const hasCorrectFormat = resourceTypes.value.every(
+            (type) =>
+              typeof type === "object" && "typeId" in type && "typeName" in type
+          );
+
+          if (!hasCorrectFormat) {
+            // 尝试将简单字符串转换为对象格式
+            resourceTypes.value = resourceTypes.value.map((type, index) => {
+              if (typeof type === "string") {
+                return { typeId: index + 1, typeName: type };
+              } else if (
+                typeof type === "object" &&
+                !("typeId" in type) &&
+                !("typeName" in type)
+              ) {
+                // 尝试从其他字段推断
+                const id = type.id || index + 1;
+                const name =
+                  type.name || type.type || type.value || `类型${id}`;
+                return { typeId: id, typeName: name };
+              }
+              return type;
+            });
           }
         }
 
         if (!resourceTypes.value || resourceTypes.value.length === 0) {
-          resourceTypes.value = ["计算机", "通信", "人工智能"];
+          console.error("未获取到类型数据");
+          // 使用默认数据
+          resourceTypes.value = [
+            { typeId: 1, typeName: "计算机" },
+            { typeId: 2, typeName: "通信" },
+            { typeId: 3, typeName: "人工智能" },
+          ];
         }
       } catch (error) {
         console.error("获取资源类型失败:", error);
-        resourceTypes.value = ["计算机", "通信", "人工智能"];
+        // 使用默认数据
+        resourceTypes.value = [
+          { typeId: 1, typeName: "计算机" },
+          { typeId: 2, typeName: "通信" },
+          { typeId: 3, typeName: "人工智能" },
+        ];
       }
     };
 
@@ -500,8 +551,9 @@ export default {
       id: null,
       title: "",
       type: "",
+      typeId: null,
       description: "",
-      tags: "",
+      tags: [],
       file: null,
     });
 
@@ -561,46 +613,96 @@ export default {
     const fetchResources = async () => {
       isLoading.value = true;
       try {
-        let data;
-        if (searchQuery.value || resourceTypeFilter.value) {
-          // 搜索
-          data = await searchResources({
-            keyword: searchQuery.value,
-            type: resourceTypeFilter.value,
-            page: currentPage.value,
-            size: pageSize.value,
-          });
-        } else {
-          // 获取全部
-          data = await getResourceList({
-            page: currentPage.value,
-            size: pageSize.value,
-          });
+        const params = {
+          page: currentPage.value,
+          size: pageSize.value,
+          query: searchQuery.value || undefined,
+        };
+
+        // 添加类型ID过滤条件
+        if (resourceTypeFilter.value) {
+          // 如果是数字，则作为typeId处理
+          if (!isNaN(resourceTypeFilter.value)) {
+            params.typeId = resourceTypeFilter.value;
+          }
+          // 否则按传统类型字段过滤
+          else {
+            params.type = resourceTypeFilter.value;
+          }
         }
 
-        if (data) {
-          // 处理资源列表数据
-          resources.value = data.map((item) => ({
-            id: item.resourceId,
+        const response = await getResourceList(params);
+
+        // 处理不同格式的响应
+        let resourceList = [];
+        let totalCount = 0;
+
+        if (response) {
+          // 检查是否是分页格式的响应
+          if (response.data && Array.isArray(response.data.data)) {
+            resourceList = response.data.data;
+            totalCount = response.data.total || 0;
+            // 更新分页信息
+            currentPage.value = response.data.page || currentPage.value;
+            pageSize.value = response.data.size || pageSize.value;
+            totalPages.value =
+              response.data.totalPages ||
+              Math.ceil(totalCount / pageSize.value);
+          }
+          // 检查data是否为数组
+          else if (Array.isArray(response)) {
+            resourceList = response;
+            totalCount = response.length;
+          }
+          // 检查data.data是否为数组
+          else if (response.data && Array.isArray(response.data)) {
+            resourceList = response.data;
+            totalCount =
+              response.data.total || response.total || response.data.length;
+          }
+          // 检查data是否为单个对象
+          else if (typeof response === "object" && !Array.isArray(response)) {
+            resourceList = [response];
+            totalCount = 1;
+          }
+        }
+
+        // 格式化资源数据，确保字段名称一致
+        resources.value = resourceList.map((item) => {
+          return {
+            resourceId: item.resourceId || item.id,
             title: item.title,
-            type: item.type || "未分类",
-            author: item.uploaderName || "未知用户",
-            uploadDate: formatDate(item.uploadTime),
+            type: item.type,
+            typeId: item.typeId,
+            description: item.description,
+            filePath: item.filePath,
+            fileName: item.fileName,
+            fileSize: item.fileSize,
+            format: item.format,
+            uploadTime: item.uploadTime,
+            downloadCount: item.downloadCount,
+            viewCount: item.viewCount,
+            rating: item.rating,
+            uploaderId: item.uploaderId,
+            reviewStatus: item.reviewStatus || item.status || "pending",
+            tags: item.tags || [],
+            // 以下为前端展示需要的额外数据
+            author: item.author || "未知用户", // 上传者名称
+            uploadDate: formatDate(item.uploadTime || new Date()),
             views: item.viewCount || 0,
             downloads: item.downloadCount || 0,
-            status: item.reviewStatus || "pending",
-            description: item.description,
-            tags: item.tags,
-            filename: item.fileName,
-            filePath: item.filePath,
-            fileSize: item.fileSize,
-          }));
+            status: item.reviewStatus || item.status || "pending",
+          };
+        });
 
-          total.value = data.length;
-        }
+        total.value = totalCount;
+        totalPages.value = Math.ceil(total.value / pageSize.value);
       } catch (error) {
         console.error("获取资源列表失败:", error);
-        ElMessage.error("获取资源列表失败");
+        ElMessage.error("获取资源列表失败，请稍后重试");
+        resources.value = [];
+        total.value = 0;
+        totalPages.value = 0;
       } finally {
         isLoading.value = false;
       }
@@ -697,20 +799,36 @@ export default {
           background: "rgba(255, 255, 255, 0.7)",
         });
 
-        await updateResource(resource.id, {
-          reviewStatus: "approved",
-        });
+        // 使用新的专用API更新审核状态
+        const result = await updateResourceReviewStatus(
+          resource.resourceId,
+          "approved"
+        );
 
-        const index = resources.value.findIndex((r) => r.id === resource.id);
-        if (index !== -1) {
-          resources.value[index].status = "approved";
+        // 判断操作是否成功的逻辑改进
+        if (result) {
+          const index = resources.value.findIndex(
+            (r) => r.resourceId === resource.resourceId
+          );
+          if (index !== -1) {
+            resources.value[index].reviewStatus = "approved";
+          }
+          ElMessage.success("审核通过成功");
+        } else {
+          // 如果result为空但没有触发catch，认为是操作成功但返回数据为空
+          const index = resources.value.findIndex(
+            (r) => r.resourceId === resource.resourceId
+          );
+          if (index !== -1) {
+            resources.value[index].reviewStatus = "approved";
+          }
+          ElMessage.success("审核通过成功");
         }
 
-        ElMessage.success("审核通过成功");
         loading.close();
       } catch (error) {
-        console.error("审核操作失败:", error);
-        ElMessage.error("审核操作失败");
+        console.error("审核失败:", error);
+        ElMessage.error("审核失败: " + (error.message || "未知错误"));
       }
     };
 
@@ -722,20 +840,36 @@ export default {
           background: "rgba(255, 255, 255, 0.7)",
         });
 
-        await updateResource(resource.id, {
-          reviewStatus: "rejected",
-        });
+        // 使用新的专用API更新审核状态
+        const result = await updateResourceReviewStatus(
+          resource.resourceId,
+          "rejected"
+        );
 
-        const index = resources.value.findIndex((r) => r.id === resource.id);
-        if (index !== -1) {
-          resources.value[index].status = "rejected";
+        // 判断操作是否成功的逻辑改进
+        if (result) {
+          const index = resources.value.findIndex(
+            (r) => r.resourceId === resource.resourceId
+          );
+          if (index !== -1) {
+            resources.value[index].reviewStatus = "rejected";
+          }
+          ElMessage.success("已拒绝该资源");
+        } else {
+          // 如果result为空但没有触发catch，认为是操作成功但返回数据为空
+          const index = resources.value.findIndex(
+            (r) => r.resourceId === resource.resourceId
+          );
+          if (index !== -1) {
+            resources.value[index].reviewStatus = "rejected";
+          }
+          ElMessage.success("已拒绝该资源");
         }
 
-        ElMessage.success("已拒绝该资源");
         loading.close();
       } catch (error) {
-        console.error("拒绝操作失败:", error);
-        ElMessage.error("拒绝操作失败");
+        console.error("拒绝资源失败:", error);
+        ElMessage.error("操作失败: " + (error.message || "未知错误"));
       }
     };
 
@@ -805,98 +939,71 @@ export default {
 
     // 提交资源表单
     const submitResourceForm = async () => {
-      // 表单验证
-      if (!resourceForm.title) {
-        ElMessage.warning("请输入资源标题");
-        return;
-      }
-
-      if (!resourceForm.type) {
-        ElMessage.warning("请选择资源类型");
-        return;
-      }
-
-      if (showAddResourceModal.value && !resourceForm.file) {
-        ElMessage.warning("请选择要上传的文件");
-        return;
-      }
-
-      const loading = ElLoading.service({
-        text: showEditResourceModal.value ? "更新中..." : "上传中...",
-        background: "rgba(255, 255, 255, 0.7)",
-      });
-
       try {
-        if (showEditResourceModal.value) {
-          // 编辑现有资源
-          const formData = new FormData();
-          formData.append("title", resourceForm.title);
-          formData.append("type", resourceForm.type);
-          formData.append("description", resourceForm.description || "");
-          formData.append("tags", JSON.stringify(selectedTags.value));
+        const loading = ElLoading.service({
+          text: "保存中...",
+          background: "rgba(255, 255, 255, 0.7)",
+        });
 
-          // 可选文件更新
-          if (resourceForm.file) {
-            formData.append("file", resourceForm.file);
-          }
+        const formData = new FormData();
+        formData.append("title", resourceForm.value.title);
+        formData.append("type", resourceForm.value.type);
 
-          await updateResource(resourceForm.id, formData);
-
-          // 更新本地数据
-          const index = resources.value.findIndex(
-            (resource) => resource.id === resourceForm.id
-          );
-
-          if (index !== -1) {
-            resources.value[index] = {
-              ...resources.value[index],
-              title: resourceForm.title,
-              type: resourceForm.type,
-              description: resourceForm.description,
-              tags: selectedTags.value,
-            };
-          }
-
-          ElMessage.success("资源更新成功");
-        } else {
-          // 上传新资源
-          const formData = new FormData();
-          formData.append("title", resourceForm.title);
-          formData.append("type", resourceForm.type);
-          formData.append("description", resourceForm.description || "");
-          formData.append("tags", JSON.stringify(selectedTags.value));
-          formData.append("file", resourceForm.file);
-
-          const result = await uploadResource(formData);
-
-          // 添加到列表
-          if (result && result.resourceId) {
-            resources.value.unshift({
-              id: result.resourceId,
-              title: resourceForm.title,
-              type: resourceForm.type,
-              author: "当前用户", // 后续可从用户信息中获取
-              uploadDate: formatDate(new Date()),
-              views: 0,
-              downloads: 0,
-              status: "pending",
-              description: resourceForm.description,
-              tags: selectedTags.value,
-              filename: resourceForm.file.name,
-            });
-          }
-
-          ElMessage.success("资源上传成功，等待审核");
+        // 如果typeId存在，也添加到表单中
+        if (resourceForm.value.typeId) {
+          formData.append("typeId", resourceForm.value.typeId);
         }
 
-        closeModal();
-      } catch (error) {
-        console.error("保存资源失败:", error);
-        ElMessage.error(
-          showEditResourceModal.value ? "更新资源失败" : "上传资源失败"
-        );
-      } finally {
+        if (resourceForm.value.description) {
+          formData.append("description", resourceForm.value.description);
+        }
+
+        // 处理标签
+        if (selectedTags.value && selectedTags.value.length > 0) {
+          formData.append("tags", JSON.stringify(selectedTags.value));
+        }
+
+        // 如果是编辑模式且不上传新文件，则不添加文件字段
+        if (!showEditResourceModal.value && resourceForm.value.file) {
+          formData.append("file", resourceForm.value.file);
+        }
+
+        let result;
+        if (showEditResourceModal.value) {
+          // 编辑资源
+          result = await updateResource(
+            selectedResource.value.resourceId,
+            formData
+          );
+        } else {
+          // 上传新资源
+          result = await uploadResource(formData);
+        }
+
+        // 关闭加载动画
         loading.close();
+
+        // 处理结果
+        if (result && (result.code === 200 || result.code === 0)) {
+          ElMessage.success(
+            showEditResourceModal.value ? "资源更新成功" : "资源上传成功"
+          );
+          closeModal();
+          fetchResources(); // 刷新资源列表
+        } else {
+          ElMessage.error(
+            (showEditResourceModal.value ? "更新" : "上传") +
+              "失败: " +
+              (result.message || "未知错误")
+          );
+        }
+      } catch (error) {
+        console.error("表单提交失败:", error);
+        ElMessage.error(
+          (showEditResourceModal.value ? "更新" : "上传") +
+            "失败: " +
+            (error.message || "未知错误")
+        );
       }
     };
 
@@ -910,7 +1017,7 @@ export default {
       resourceForm.title = "";
       resourceForm.type = "";
       resourceForm.description = "";
-      resourceForm.tags = "";
+      resourceForm.tags = [];
       resourceForm.file = null;
       selectedTags.value = [];
     };

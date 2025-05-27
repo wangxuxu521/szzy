@@ -9,7 +9,10 @@
         <id property="typeId" column="type_id"/>
         <result property="typeName" column="type_name"/>
         <result property="description" column="description"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="sortOrder" column="sort_order"/>
         <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
         <result property="status" column="status"/>
     </resultMap>
 
@@ -18,19 +21,40 @@
     </select>
 
     <select id="findAll" resultMap="TypeResultMap">
-        SELECT * FROM type WHERE status = 1 ORDER BY type_id
+        SELECT * FROM type ORDER BY sort_order, type_id
     </select>
     
     <select id="checkTypeNameExists" resultType="int">
         SELECT COUNT(*) FROM type WHERE type_name = #{typeName}
     </select>
 
+    <select id="findChildrenByParentId" parameterType="int" resultMap="TypeResultMap">
+        SELECT * FROM type WHERE parent_id = #{parentId} ORDER BY sort_order, type_id
+    </select>
+    
+    <select id="countChildrenByParentId" parameterType="int" resultType="int">
+        SELECT COUNT(*) FROM type WHERE parent_id = #{parentId}
+    </select>
+    
+    <select id="findTypeTree" resultMap="TypeResultMap">
+        SELECT t.*, p.type_name as parent_name 
+        FROM type t
+        LEFT JOIN type p ON t.parent_id = p.type_id
+        ORDER BY t.sort_order, t.type_id
+    </select>
+    
+    <select id="searchByName" resultMap="TypeResultMap">
+        SELECT * FROM type 
+        WHERE type_name LIKE CONCAT('%', #{keyword}, '%')
+        ORDER BY sort_order, type_id
+    </select>
+
     <insert id="insert" parameterType="com.example.springboot.entity.Type" useGeneratedKeys="true" keyProperty="typeId">
         INSERT INTO type(
-            type_name, description, create_time, status
+            type_name, description, parent_id, sort_order, create_time, update_time, status
         )
         VALUES(
-            #{typeName}, #{description}, NOW(), #{status}
+            #{typeName}, #{description}, #{parentId}, #{sortOrder}, NOW(), NOW(), #{status}
         )
     </insert>
 
@@ -38,7 +62,17 @@
         UPDATE type 
         SET type_name = #{typeName},
             description = #{description},
+            parent_id = #{parentId},
+            sort_order = #{sortOrder},
+            update_time = NOW(),
             status = #{status}
+        WHERE type_id = #{typeId}
+    </update>
+    
+    <update id="updateStatus">
+        UPDATE type
+        SET status = #{status},
+            update_time = NOW()
         WHERE type_id = #{typeId}
     </update>
 

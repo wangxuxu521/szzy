@@ -1,37 +1,29 @@
 /**
  * 日期格式化函数
- * @param {string|number|Date} date - 日期字符串、时间戳或Date对象
- * @param {string} format - 格式化模式，默认为 'YYYY-MM-DD HH:mm:ss'
+ * @param {Date|string} date - 日期对象或日期字符串
+ * @param {string} format - 格式化模板，默认为 "YYYY-MM-DD HH:mm:ss"
  * @returns {string} 格式化后的日期字符串
  */
 export const formatDate = (date, format = "YYYY-MM-DD HH:mm:ss") => {
   if (!date) return "";
 
-  // 转换为Date对象
-  let dateObj;
-  if (date instanceof Date) {
-    dateObj = date;
-  } else if (typeof date === "number" || /^\d+$/.test(date)) {
-    // 如果是数字或纯数字字符串，按时间戳处理
-    dateObj = new Date(parseInt(date));
-  } else {
-    // 字符串日期
-    dateObj = new Date(date);
+  // 如果是字符串，尝试转换为Date对象
+  if (typeof date === "string") {
+    date = new Date(date);
   }
 
-  // 检查是否有效日期
-  if (isNaN(dateObj.getTime())) {
-    return "";
+  // 如果不是有效的日期对象，返回原始值或空字符串
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    return typeof date === "string" ? date : "";
   }
 
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const day = String(dateObj.getDate()).padStart(2, "0");
-  const hours = String(dateObj.getHours()).padStart(2, "0");
-  const minutes = String(dateObj.getMinutes()).padStart(2, "0");
-  const seconds = String(dateObj.getSeconds()).padStart(2, "0");
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
 
-  // 根据format替换对应部分
   return format
     .replace("YYYY", year)
     .replace("MM", month)
@@ -89,4 +81,13 @@ export const formatCurrency = (amount, currency = "¥") => {
 export const formatPrice = (price) => {
   if (!price || price <= 0) return "免费";
   return formatCurrency(price);
+};
+
+/**
+ * 格式化数字（添加千分位分隔符）
+ * @param {number} num - 数字
+ * @returns {string} 格式化后的数字字符串
+ */
+export const formatNumber = (num) => {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 };

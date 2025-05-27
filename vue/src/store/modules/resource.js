@@ -59,11 +59,23 @@ const actions = {
     return new Promise((resolve, reject) => {
       getHotResources(limit)
         .then((response) => {
-          const { data } = response;
-          commit("SET_HOT_RESOURCES", data || []);
-          resolve(data);
+          console.log("Hot resources API response:", response);
+          // 处理标准响应格式
+          if (response && response.code === 200) {
+            commit("SET_HOT_RESOURCES", response.data || []);
+            resolve(response.data);
+          } else if (response && response.data) {
+            // 处理直接返回数据的情况
+            commit("SET_HOT_RESOURCES", response.data || []);
+            resolve(response.data);
+          } else {
+            // 处理其他情况
+            commit("SET_HOT_RESOURCES", response || []);
+            resolve(response);
+          }
         })
         .catch((error) => {
+          console.error("获取热门资源失败:", error);
           reject(error);
         });
     });

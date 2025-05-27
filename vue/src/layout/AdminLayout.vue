@@ -55,6 +55,11 @@ export default {
         icon: "👥",
       },
       {
+        title: "公告管理",
+        path: "/admin/announcement-management",
+        icon: "📢",
+      },
+      {
         title: "资源管理",
         path: "/admin/resource-management",
         icon: "📚",

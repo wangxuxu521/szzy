@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.springboot.mapper.CommentMapper">
+    <!-- 基础结果映射 -->
+    <resultMap id="BaseResultMap" type="Comment">
+        <id column="comment_id" property="commentId" />
+        <result column="resource_id" property="resourceId" />
+        <result column="user_id" property="userId" />
+        <result column="content" property="content" />
+        <result column="parent_id" property="parentId" />
+        <result column="create_time" property="createTime" />
+        <result column="status" property="status" />
+    </resultMap>
+    
+    <!-- 包含用户和资源信息的结果映射 -->
+    <resultMap id="DetailResultMap" type="Comment" extends="BaseResultMap">
+        <result column="username" property="username" />
+        <result column="avatar" property="userAvatar" />
+        <result column="title" property="resourceTitle" />
+    </resultMap>
+    
+    <!-- 插入评论 -->
+    <insert id="insert" parameterType="Comment" useGeneratedKeys="true" keyProperty="commentId">
+        INSERT INTO comment (
+            resource_id, user_id, content, parent_id, create_time, status
+        ) VALUES (
+            #{resourceId}, #{userId}, #{content}, #{parentId}, #{createTime}, #{status}
+        )
+    </insert>
+    
+    <!-- 根据ID查询评论 -->
+    <select id="findById" resultMap="DetailResultMap">
+        SELECT c.*, u.username, u.avatar, r.title 
+        FROM comment c
+        LEFT JOIN user u ON c.user_id = u.user_id
+        LEFT JOIN resource r ON c.resource_id = r.resource_id
+        WHERE c.comment_id = #{commentId}
+    </select>
+    
+    <!-- 根据资源ID查询评论列表 -->
+    <select id="findByResourceId" resultMap="DetailResultMap">
+        SELECT c.*, u.username, u.avatar, r.title 
+        FROM comment c
+        LEFT JOIN user u ON c.user_id = u.user_id
+        LEFT JOIN resource r ON c.resource_id = r.resource_id
+        WHERE c.resource_id = #{resourceId}
+        ORDER BY c.create_time DESC
+    </select>
+    
+    <!-- 根据用户ID查询评论列表 -->
+    <select id="findByUserId" resultMap="DetailResultMap">
+        SELECT c.*, u.username, u.avatar, r.title 
+        FROM comment c
+        LEFT JOIN user u ON c.user_id = u.user_id
+        LEFT JOIN resource r ON c.resource_id = r.resource_id
+        WHERE c.user_id = #{userId}
+        ORDER BY c.create_time DESC
+    </select>
+    
+    <!-- 根据父评论ID查询子评论列表 -->
+    <select id="findByParentId" resultMap="DetailResultMap">
+        SELECT c.*, u.username, u.avatar, r.title 
+        FROM comment c
+        LEFT JOIN user u ON c.user_id = u.user_id
+        LEFT JOIN resource r ON c.resource_id = r.resource_id
+        WHERE c.parent_id = #{parentId}
+        ORDER BY c.create_time ASC
+    </select>
+    
+    <!-- 删除评论 -->
+    <delete id="delete">
+        DELETE FROM comment WHERE comment_id = #{commentId}
+    </delete>
+    
+    <!-- 更新评论 -->
+    <update id="update" parameterType="Comment">
+        UPDATE comment 
+        SET content = #{content},
+            status = #{status}
+        WHERE comment_id = #{commentId}
+    </update>
+    
+    <!-- 更新评论状态 -->
+    <update id="updateStatus">
+        UPDATE comment 
+        SET status = #{status}
+        WHERE comment_id = #{commentId}
+    </update>
+    
+    <!-- 查询最新评论列表 -->
+    <select id="findLatestComments" resultMap="DetailResultMap">
+        SELECT c.*, u.username, u.avatar, r.title 
+        FROM comment c
+        LEFT JOIN user u ON c.user_id = u.user_id
+        LEFT JOIN resource r ON c.resource_id = r.resource_id
+        WHERE c.status = 1
+        ORDER BY c.create_time DESC
+        LIMIT #{limit}
+    </select>
+    
+    <!-- 统计资源评论数量 -->
+    <select id="countByResourceId" resultType="int">
+        SELECT COUNT(*) FROM comment WHERE resource_id = #{resourceId}
+    </select>
+    
+    <!-- 统计用户评论数量 -->
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM comment WHERE user_id = #{userId}
+    </select>
+</mapper> 

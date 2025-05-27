@@ -47,4 +47,11 @@ public interface CourseMapper {
      * 搜索课程
      */
     List<Course> searchCourses(@Param("keyword") String keyword, @Param("typeId") Integer typeId);
+    
+    /**
+     * 统计教师的课程数量
+     * @param teacherId 教师ID
+     * @return 课程数量
+     */
+    int countByTeacherId(Integer teacherId);
 } 

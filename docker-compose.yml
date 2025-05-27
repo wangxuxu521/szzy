@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7.0
+    container_name: szzy-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: always
+    networks:
+      - szzy-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: szzy-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    restart: always
+    networks:
+      - szzy-network
+
+volumes:
+  redis-data:
+  minio-data:
+
+networks:
+  szzy-network:
+    driver: bridge

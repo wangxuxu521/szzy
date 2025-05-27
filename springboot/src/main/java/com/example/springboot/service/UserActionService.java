@@ -43,4 +43,18 @@ public class UserActionService {
     public void delete(Integer actionId) {
         userActionMapper.delete(actionId);
     }
+
+    /**
+     * 根据用户ID查询用户活动
+     * @param userId 用户ID
+     * @param limit 限制数量
+     * @return 用户活动列表
+     */
+    public List<UserAction> findByUserId(Integer userId, Integer limit) {
+        List<UserAction> actions = userActionMapper.findByUserId(userId);
+        if (limit != null && actions.size() > limit) {
+            return actions.subList(0, limit);
+        }
+        return actions;
+    }
 } 

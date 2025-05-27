@@ -18,38 +18,101 @@
         <result property="viewCount" column="view_count"/>
         <result property="rating" column="rating"/>
         <result property="uploaderId" column="uploader_id"/>
+        <result property="uploaderName" column="uploaderName"/>
         <result property="reviewStatus" column="review_status"/>
         <result property="type" column="type"/>
         <result property="tags" column="tags"/>
     </resultMap>
 
     <select id="findById" parameterType="int" resultMap="ResourceResultMap">
-        SELECT * FROM resource WHERE resource_id = #{resourceId}
+        SELECT r.*, u.name as uploaderName
+        FROM resource r
+        LEFT JOIN user u ON r.uploader_id = u.user_id
+        WHERE r.resource_id = #{resourceId}
     </select>
 
     <select id="findAll" resultMap="ResourceResultMap">
-        SELECT * FROM resource
+        SELECT r.*, u.name as uploaderName
+        FROM resource r
+        LEFT JOIN user u ON r.uploader_id = u.user_id
+        ORDER BY r.upload_time DESC
+    </select>
+
+    <select id="findByPage" resultMap="ResourceResultMap">
+        SELECT r.*, u.name as uploaderName
+        FROM resource r
+        LEFT JOIN user u ON r.uploader_id = u.user_id
+        ORDER BY r.upload_time DESC
+        LIMIT #{offset}, #{limit}
     </select>
 
     <select id="searchResources" resultMap="ResourceResultMap">
-        SELECT * FROM resource
+        SELECT r.*, u.name as uploaderName
+        FROM resource r
+        LEFT JOIN user u ON r.uploader_id = u.user_id
         <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    r.title LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.description LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.tags LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="type != null and type != ''">
+                AND r.type = #{type}
+            </if>
+        </where>
+        ORDER BY r.upload_time DESC
+    </select>
+
+    <select id="searchResourcesWithPage" resultMap="ResourceResultMap">
+        SELECT r.*, u.name as uploaderName
+        FROM resource r
+        LEFT JOIN user u ON r.uploader_id = u.user_id
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    r.title LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.description LIKE CONCAT('%', #{keyword}, '%')
+                    OR r.tags LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="type != null and type != ''">
+                AND r.type = #{type}
+            </if>
+            <if test="typeId != null">
+                AND r.type_id = #{typeId}
+            </if>
+        </where>
+        ORDER BY r.upload_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countResources" resultType="int">
+        SELECT COUNT(*)
+        FROM resource
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    title LIKE CONCAT('%', #{keyword}, '%')
+                    OR description LIKE CONCAT('%', #{keyword}, '%')
+                    OR tags LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
             <if test="type != null and type != ''">
                 AND type = #{type}
             </if>
-            <if test="keyword != null and keyword != ''">
-                AND (
-                    title LIKE CONCAT('%', #{keyword}, '%') OR
-                    description LIKE CONCAT('%', #{keyword}, '%') OR
-                    tags LIKE CONCAT('%', #{keyword}, '%')
-                )
+            <if test="typeId != null">
+                AND type_id = #{typeId}
             </if>
         </where>
     </select>
 
     <select id="findHotResources" resultMap="ResourceResultMap">
-        SELECT * FROM resource
-        ORDER BY download_count DESC
+        SELECT r.*, u.name as uploaderName
+        FROM resource r
+        LEFT JOIN user u ON r.uploader_id = u.user_id
+        ORDER BY r.download_count DESC
         LIMIT #{limit}
     </select>
 
@@ -82,5 +145,21 @@
     <delete id="delete" parameterType="int">
         DELETE FROM resource WHERE resource_id=#{resourceId}
     </delete>
+
+    <select id="findByUploaderId" parameterType="int" resultMap="ResourceResultMap">
+        SELECT r.*, u.name as uploaderName
+        FROM resource r
+        LEFT JOIN user u ON r.uploader_id = u.user_id
+        WHERE r.uploader_id = #{uploaderId} 
+        ORDER BY r.upload_time DESC
+    </select>
+    
+    <select id="countByUploaderId" parameterType="int" resultType="int">
+        SELECT COUNT(*) FROM resource WHERE uploader_id = #{uploaderId}
+    </select>
+    
+    <select id="countByUploaderIdGroupByType" parameterType="int" resultType="java.util.Map">
+        SELECT type, COUNT(*) as count FROM resource WHERE uploader_id = #{uploaderId} GROUP BY type
+    </select>
 
 </mapper> 

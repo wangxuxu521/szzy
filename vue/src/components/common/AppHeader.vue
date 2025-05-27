@@ -5,7 +5,7 @@
       <input
         type="text"
         v-model="searchQuery"
-        placeholder="搜索资源、案例或研究成果..."
+        placeholder="搜索资源..."
         @keyup.enter="handleSearch"
       />
       <button @click="handleSearch">🔍</button>
@@ -13,8 +13,6 @@
     <div class="nav-links">
       <router-link to="/" class="nav-link">首页</router-link>
       <router-link to="/resources" class="nav-link">资源库</router-link>
-      <router-link to="/cases" class="nav-link">教学案例</router-link>
-      <router-link to="/research" class="nav-link">教学研究</router-link>
       <router-link
         v-if="isLoggedIn && (userRole === 'teacher' || userRole === 'admin')"
         to="/resource-management"

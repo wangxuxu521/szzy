@@ -4,13 +4,54 @@
       <h1>{{ siteTitle }}</h1>
       <p>{{ siteDescription }}</p>
       <div class="hero-search">
-        <input
-          type="text"
-          v-model="searchQuery"
-          placeholder="输入关键词搜索资源..."
-          @keyup.enter="handleSearch"
-        />
-        <button @click="handleSearch">立即搜索</button>
+        <div class="search-input-container">
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="输入关键词搜索资源..."
+            @keyup.enter="handleSearch"
+            @focus="showSearchSuggestions = true"
+            @blur="setTimeout(() => (showSearchSuggestions = false), 200)"
+          />
+          <button @click="handleSearch">立即搜索</button>
+
+          <!-- 搜索建议下拉框 -->
+          <div class="search-suggestions" v-if="showSearchSuggestions">
+            <div class="suggestions-section">
+              <h4>热门搜索</h4>
+              <div class="tags-container">
+                <span
+                  v-for="(tag, index) in hotSearchTags"
+                  :key="'hot-' + index"
+                  class="search-tag"
+                  @click="selectSearchTag(tag)"
+                  >{{ tag }}</span
+                >
+              </div>
+            </div>
+            <div class="suggestions-section" v-if="searchHistory.length > 0">
+              <h4>搜索历史</h4>
+              <div class="tags-container">
+                <span
+                  v-for="(tag, index) in searchHistory"
+                  :key="'history-' + index"
+                  class="search-tag history-tag"
+                  @click="selectSearchTag(tag)"
+                >
+                  {{ tag }}
+                  <span
+                    class="tag-remove"
+                    @click.stop="removeSearchHistory(index)"
+                    >×</span
+                  >
+                </span>
+              </div>
+              <div class="clear-history" @click="clearSearchHistory">
+                清空历史记录
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -18,7 +59,9 @@
     <section class="announcements">
       <div class="section-header">
         <h2>通知公告</h2>
-        <a href="#" class="more-link">查看更多 ></a>
+        <router-link to="/announcements" class="more-link"
+          >查看更多 ></router-link
+        >
       </div>
       <div v-if="loadingAnnouncements" class="loading-container">
         <el-skeleton :rows="3" animated />
@@ -46,7 +89,7 @@
 
     <!-- 特性展示 -->
     <section class="features">
-      <h2 class="section-title">系统功能</h2>
+      <h2 class="section-title">资源分类</h2>
       <div v-if="loadingFeatures" class="loading-container">
         <el-skeleton :rows="3" animated />
       </div>
@@ -140,6 +183,15 @@ export default {
     const announcementDialogVisible = ref(false);
     const currentAnnouncement = ref({});
     const systemConfig = ref({});
+    const showSearchSuggestions = ref(false);
+    const hotSearchTags = ref([
+      "思政教育",
+      "计算机网络",
+      "人工智能",
+      "通信原理",
+      "爱国主义",
+    ]);
+    const searchHistory = ref([]);
 
     // 网站基本信息
     const siteTitle = computed(() => {
@@ -186,9 +238,61 @@ export default {
       });
     };
 
+    // 从localStorage加载搜索历史
+    const loadSearchHistory = () => {
+      try {
+        const history = localStorage.getItem("searchHistory");
+        if (history) {
+          searchHistory.value = JSON.parse(history);
+        }
+      } catch (e) {
+        console.error("加载搜索历史失败", e);
+        searchHistory.value = [];
+      }
+    };
+
+    // 选择搜索标签
+    const selectSearchTag = (tag) => {
+      searchQuery.value = tag;
+      handleSearch();
+    };
+
+    // 移除搜索历史项
+    const removeSearchHistory = (index) => {
+      searchHistory.value.splice(index, 1);
+      localStorage.setItem(
+        "searchHistory",
+        JSON.stringify(searchHistory.value)
+      );
+    };
+
+    // 清空搜索历史
+    const clearSearchHistory = () => {
+      searchHistory.value = [];
+      localStorage.removeItem("searchHistory");
+    };
+
     // 搜索资源
     const handleSearch = () => {
       if (searchQuery.value.trim()) {
+        // 记录搜索词到localStorage
+        try {
+          if (!searchHistory.value.includes(searchQuery.value.trim())) {
+            searchHistory.value.unshift(searchQuery.value.trim());
+            // 只保留最近10条搜索记录
+            if (searchHistory.value.length > 10) {
+              searchHistory.value.pop();
+            }
+            localStorage.setItem(
+              "searchHistory",
+              JSON.stringify(searchHistory.value)
+            );
+          }
+        } catch (e) {
+          console.error("保存搜索历史失败", e);
+        }
+
+        // 跳转到资源页面并带上搜索参数
         router.push({
           path: "/resources",
           query: { keyword: searchQuery.value.trim() },
@@ -223,8 +327,57 @@ export default {
     const fetchHotResources = async () => {
       loadingResources.value = true;
       try {
-        await store.dispatch("resource/getHotResources", 5);
-        hotResources.value = store.getters["resource/hotResources"];
+        // 使用store中的action获取热门资源
+        await store.dispatch("resource/getHotResources", 6);
+        const storeResources = store.getters["resource/hotResources"];
+
+        console.log("获取到的热门资源:", storeResources);
+
+        if (storeResources && storeResources.length > 0) {
+          // 转换API返回的数据格式为组件需要的格式
+          hotResources.value = storeResources.map((resource) => ({
+            id: resource.resourceId,
+            title: resource.title,
+            type: resource.type || "未分类",
+            views: resource.viewCount || 0,
+            author: resource.uploaderName || "未知用户",
+            description: resource.description,
+            tags: resource.tags
+              ? typeof resource.tags === "string"
+                ? JSON.parse(resource.tags)
+                : resource.tags
+              : [],
+          }));
+        } else {
+          console.log("未获取到热门资源数据，使用备用数据");
+          // 使用备用数据
+          hotResources.value = [
+            {
+              id: 1,
+              title: "计算机网络中的爱国情怀",
+              type: "计算机",
+              views: 1234,
+              author: "张教授",
+              tags: ["计算机网络", "爱国主义"],
+            },
+            {
+              id: 2,
+              title: "数据结构与民族精神",
+              type: "通信",
+              views: 890,
+              author: "李教授",
+              tags: ["数据结构", "民族精神"],
+            },
+            {
+              id: 3,
+              title: "人工智能伦理与价值观",
+              type: "人工智能",
+              views: 567,
+              author: "王教授",
+              tags: ["人工智能", "伦理价值观"],
+            },
+          ];
+        }
       } catch (error) {
         console.error("获取热门资源失败:", error);
         // 使用备用数据
@@ -263,10 +416,19 @@ export default {
     const fetchAnnouncements = async () => {
       loadingAnnouncements.value = true;
       try {
-        const res = await systemApi.getAnnouncements();
-        if (res.code === 200 && res.data) {
-          announcements.value = res.data;
+        // 使用API端点获取公告
+        const response = await systemApi.getAnnouncements(3);
+
+        if (response && response.code === 200 && response.data) {
+          announcements.value = response.data.map((item) => ({
+            id: item.id,
+            title: item.title,
+            date: item.publishTime || item.createTime,
+            important: item.type > 0, // 类型大于0的为重要公告
+            content: item.content,
+          }));
         } else {
+          console.error("获取公告数据格式错误:", response);
           // 使用备用数据
           announcements.value = [
             {
@@ -275,7 +437,7 @@ export default {
               date: "2024-03-20",
               important: true,
               content:
-                "<p>为深入贯彻习近平新时代中国特色社会主义思想和党的二十大精神，落实立德树人根本任务，推进课程思政建设，现面向全校开展2024年课程思政示范课程建设工作。</p><p>一、建设目标<br>通过课程思政示范课程建设，促进专业课程与思想政治理论课同向同行，推进全员全过程全方位育人。</p><p>二、申报条件<br>1. 申报教师应具有良好的思想政治素质和师德师风。<br>2. 申报课程应为我校本科生或研究生培养方案中的课程。<br>3. 申报课程应有清晰的育人目标和课程思政教学设计。</p><p>三、申报材料<br>1. 《课程思政示范课程申报表》<br>2. 课程思政教学设计方案<br>3. 课程思政教学案例1-2个</p><p>四、申报时间<br>即日起至2024年4月30日</p>",
+                "<p>为深入贯彻习近平新时代中国特色社会主义思想和党的二十大精神，落实立德树人根本任务，推进课程思政建设，现面向全校开展2024年课程思政示范课程建设工作。</p>",
             },
             {
               id: 2,
@@ -283,7 +445,7 @@ export default {
               date: "2024-03-18",
               important: false,
               content:
-                "<p>为促进课程思政教学经验交流，提升教师课程思政教学能力，学校定于4月15日举办2024年春季课程思政教学研讨会。</p><p>一、研讨主题<br>专业课程中的思政元素挖掘与教学融入</p><p>二、时间地点<br>时间：2024年4月15日14:00-17:00<br>地点：图书馆报告厅</p><p>三、参会人员<br>各学院教学副院长、系主任、课程思政建设负责人、专业课教师代表</p><p>四、研讨内容<br>1. 课程思政建设经验交流<br>2. 课程思政教学案例分享<br>3. 课程思政教学设计研讨</p>",
+                "<p>为促进课程思政教学经验交流，提升教师课程思政教学能力，学校定于4月15日举办2024年春季课程思政教学研讨会。</p>",
             },
             {
               id: 3,
@@ -291,7 +453,7 @@ export default {
               date: "2024-03-15",
               important: true,
               content:
-                "<p>为展示我校课程思政建设成果，促进优秀教学经验交流与推广，现面向全校教师征集优秀课程思政案例。</p><p>一、征集范围<br>各学科专业课程中融入思政元素的教学案例，包括但不限于课堂教学、实验教学、实践教学等环节的案例。</p><p>二、案例要求<br>1. 案例应具有思想性、创新性和实效性<br>2. 案例应包含教学背景、教学目标、教学内容、教学过程、教学效果等内容<br>3. 案例应有实际应用的教学课件、教学视频等支持材料</p><p>三、征集时间<br>即日起至2024年5月31日</p><p>四、奖励办法<br>评选出的优秀案例将结集出版，并给予相应的教学工作量和绩效奖励。</p>",
+                "<p>为展示我校课程思政建设成果，促进优秀教学经验交流与推广，现面向全校教师征集优秀课程思政案例。</p>",
             },
           ];
         }
@@ -333,21 +495,45 @@ export default {
     const fetchResourceTypeCount = async () => {
       loadingFeatures.value = true;
       try {
-        const res = await systemApi.getResourceTypeCount();
-        if (res.code === 200 && res.data) {
+        // 统计API获取类型数量
+        const response = await systemApi.getResourceTypeCount();
+
+        if (response && response.code === 200 && response.data) {
           // 更新特性展示中的数量
-          const typeData = res.data;
-          features.value = features.value.map((feature) => {
-            const type = feature.title.toLowerCase();
-            if (typeData[type]) {
-              return { ...feature, count: typeData[type].toLocaleString() };
-            }
-            return feature;
-          });
+          const typeCount = response.data;
+          console.log("资源类型统计:", typeCount);
+
+          // 更新features中对应类型的数量
+          features.value = [
+            {
+              title: "计算机",
+              description: "丰富的课程思政教学资源",
+              icon: "📚",
+              count: typeCount["计算机"] || 0,
+            },
+            {
+              title: "通信",
+              description: "优秀课程思政教学案例分享",
+              icon: "🎯",
+              count: typeCount["通信"] || 0,
+            },
+            {
+              title: "人工智能",
+              description: "课程思政教学研究与成果",
+              icon: "🔍",
+              count: typeCount["人工智能"] || 0,
+            },
+          ];
+        } else {
+          console.error("获取资源类型统计数据格式错误:", response);
         }
       } catch (error) {
         console.error("获取资源类型统计失败:", error);
-        // 保持原有数据
+        // 默认数量设置为0
+        features.value = features.value.map((feature) => ({
+          ...feature,
+          count: 0,
+        }));
       } finally {
         loadingFeatures.value = false;
       }
@@ -373,6 +559,9 @@ export default {
         fetchResourceTypeCount(),
         fetchSystemConfig(),
       ]);
+
+      // 加载搜索历史
+      loadSearchHistory();
     });
 
     return {
@@ -387,11 +576,17 @@ export default {
       currentAnnouncement,
       siteTitle,
       siteDescription,
-      handleSearch,
       formatDate,
+      handleSearch,
       viewAnnouncement,
       navigateToCategory,
       viewResource,
+      showSearchSuggestions,
+      hotSearchTags,
+      searchHistory,
+      selectSearchTag,
+      removeSearchHistory,
+      clearSearchHistory,
     };
   },
 };
@@ -586,5 +781,94 @@ section {
 .announcement-body {
   margin-top: 1rem;
   line-height: 1.6;
+}
+
+.search-input-container {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  background-color: white;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  padding: 15px;
+  margin-top: 5px;
+}
+
+.suggestions-section {
+  margin-bottom: 15px;
+}
+
+.suggestions-section h4 {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 10px 0;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.search-tag {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f5f5f5;
+  color: #333;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.search-tag:hover {
+  background-color: #e0e0e0;
+}
+
+.history-tag {
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  padding-right: 8px;
+}
+
+.tag-remove {
+  margin-left: 5px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #999;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+.tag-remove:hover {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.clear-history {
+  text-align: center;
+  font-size: 13px;
+  color: #999;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.clear-history:hover {
+  color: #666;
+  text-decoration: underline;
 }
 </style>

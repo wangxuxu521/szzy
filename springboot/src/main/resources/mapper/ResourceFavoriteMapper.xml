@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.springboot.mapper.ResourceFavoriteMapper">
+    <!-- 基础结果映射 -->
+    <resultMap id="BaseResultMap" type="ResourceFavorite">
+        <id column="id" property="id" />
+        <result column="user_id" property="userId" />
+        <result column="resource_id" property="resourceId" />
+        <result column="create_time" property="createTime" />
+    </resultMap>
+    
+    <!-- 包含用户和资源信息的结果映射 -->
+    <resultMap id="DetailResultMap" type="ResourceFavorite" extends="BaseResultMap">
+        <result column="username" property="username" />
+        <result column="title" property="resourceTitle" />
+        <result column="type" property="resourceType" />
+        <result column="format" property="resourceFormat" />
+    </resultMap>
+    
+    <!-- 插入收藏 -->
+    <insert id="insert" parameterType="ResourceFavorite" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO resource_favorite (user_id, resource_id, create_time)
+        VALUES (#{userId}, #{resourceId}, #{createTime})
+    </insert>
+    
+    <!-- 取消收藏 -->
+    <delete id="delete">
+        DELETE FROM resource_favorite WHERE user_id = #{userId} AND resource_id = #{resourceId}
+    </delete>
+    
+    <!-- 根据ID查询收藏 -->
+    <select id="findById" resultMap="DetailResultMap">
+        SELECT f.*, u.username, r.title, r.type, r.format
+        FROM resource_favorite f
+        LEFT JOIN user u ON f.user_id = u.user_id
+        LEFT JOIN resource r ON f.resource_id = r.resource_id
+        WHERE f.id = #{id}
+    </select>
+    
+    <!-- 根据用户ID和资源ID查询收藏 -->
+    <select id="findByUserIdAndResourceId" resultMap="DetailResultMap">
+        SELECT f.*, u.username, r.title, r.type, r.format
+        FROM resource_favorite f
+        LEFT JOIN user u ON f.user_id = u.user_id
+        LEFT JOIN resource r ON f.resource_id = r.resource_id
+        WHERE f.user_id = #{userId} AND f.resource_id = #{resourceId}
+    </select>
+    
+    <!-- 根据用户ID查询收藏列表 -->
+    <select id="findByUserId" resultMap="DetailResultMap">
+        SELECT f.*, u.username, r.title, r.type, r.format
+        FROM resource_favorite f
+        LEFT JOIN user u ON f.user_id = u.user_id
+        LEFT JOIN resource r ON f.resource_id = r.resource_id
+        WHERE f.user_id = #{userId}
+        ORDER BY f.create_time DESC
+    </select>
+    
+    <!-- 根据资源ID查询收藏列表 -->
+    <select id="findByResourceId" resultMap="DetailResultMap">
+        SELECT f.*, u.username, r.title, r.type, r.format
+        FROM resource_favorite f
+        LEFT JOIN user u ON f.user_id = u.user_id
+        LEFT JOIN resource r ON f.resource_id = r.resource_id
+        WHERE f.resource_id = #{resourceId}
+        ORDER BY f.create_time DESC
+    </select>
+    
+    <!-- 检查资源是否被收藏 -->
+    <select id="isFavorite" resultType="boolean">
+        SELECT COUNT(*) > 0
+        FROM resource_favorite
+        WHERE user_id = #{userId} AND resource_id = #{resourceId}
+    </select>
+    
+    <!-- 统计用户收藏数量 -->
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM resource_favorite
+        WHERE user_id = #{userId}
+    </select>
+    
+    <!-- 统计资源被收藏数量 -->
+    <select id="countByResourceId" resultType="int">
+        SELECT COUNT(*)
+        FROM resource_favorite
+        WHERE resource_id = #{resourceId}
+    </select>
+    
+    <!-- 查询用户收藏的资源ID列表 -->
+    <select id="findResourceIdsByUserId" resultType="int">
+        SELECT resource_id
+        FROM resource_favorite
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 根据ID删除收藏 -->
+    <delete id="deleteById">
+        DELETE FROM resource_favorite WHERE id = #{id}
+    </delete>
+    
+    <!-- 查询收藏了指定资源的用户ID列表 -->
+    <select id="findUserIdsByResourceId" resultType="int">
+        SELECT user_id
+        FROM resource_favorite
+        WHERE resource_id = #{resourceId}
+        ORDER BY create_time DESC
+    </select>
+</mapper> 

@@ -33,6 +33,17 @@ export default [
         },
       },
       {
+        path: "announcement-management",
+        name: "AnnouncementManagement",
+        component: () =>
+          import("@/views/admin/components/AnnouncementManagement.vue"),
+        meta: {
+          title: "公告管理",
+          requiresAuth: true,
+          roles: ["admin"],
+        },
+      },
+      {
         path: "resource-management",
         name: "ResourceManagement",
         component: () =>
@@ -66,7 +77,7 @@ export default [
       },
       {
         path: "type-management",
-        name: "TypeManagement",
+        name: "AdminTypeManagement",
         component: () => import("@/views/admin/components/TypeManagement.vue"),
         meta: {
           title: "类型管理",

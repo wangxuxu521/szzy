@@ -29,6 +29,15 @@ const routes = [
     },
   },
   {
+    path: "/register",
+    name: "Register",
+    component: () => import("@/views/Register.vue"),
+    meta: {
+      title: "注册",
+      requiresAuth: false,
+    },
+  },
+  {
     path: "/guide",
     name: "Guide",
     component: () => import("@/views/Guide.vue"),
@@ -38,13 +47,33 @@ const routes = [
     },
   },
   {
+    path: "/announcements",
+    name: "AnnouncementList",
+    component: () => import("@/views/AnnouncementList.vue"),
+    meta: {
+      title: "通知公告",
+      requiresAuth: false,
+    },
+  },
+  {
     path: "/resources",
     name: "ResourceLibrary",
     component: () => import("@/views/ResourceLibrary.vue"),
     meta: {
-      title: "思政资源库",
+      title: "资源库",
+      icon: "el-icon-folder-opened",
       requiresAuth: true,
     },
+  },
+  {
+    path: "/resources/:id",
+    name: "ResourceDetail",
+    component: () => import("@/views/ResourceDetail.vue"),
+    meta: {
+      title: "资源详情",
+      requiresAuth: true,
+    },
+    props: true,
   },
   {
     path: "/resource-management",
@@ -56,21 +85,13 @@ const routes = [
     },
   },
   {
-    path: "/cases",
-    name: "TeachingCases",
-    component: () => import("@/views/TeachingCases.vue"),
+    path: "/upload-resource",
+    name: "UploadResource",
+    component: () => import("@/views/UploadResource.vue"),
     meta: {
-      title: "教学案例",
+      title: "上传资源",
       requiresAuth: true,
-    },
-  },
-  {
-    path: "/research",
-    name: "Research",
-    component: () => import("@/views/Research.vue"),
-    meta: {
-      title: "教学研究",
-      requiresAuth: true,
+      roles: ["admin", "teacher", "student"],
     },
   },
   // 404路由放在最后

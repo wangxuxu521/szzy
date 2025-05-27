@@ -6,6 +6,8 @@ import com.example.springboot.util.Result;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/types")
 public class TypeController {
@@ -39,6 +41,39 @@ public class TypeController {
         }
     }
     
+    // 获取类型树结构
+    @GetMapping("/tree")
+    public Result getTypeTree() {
+        try {
+            return Result.success(typeService.getTypeTree());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("获取类型树失败: " + e.getMessage());
+        }
+    }
+    
+    // 获取子类型
+    @GetMapping("/children/{parentId}")
+    public Result getChildren(@PathVariable Integer parentId) {
+        try {
+            return Result.success(typeService.findChildrenByParentId(parentId));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("获取子类型失败: " + e.getMessage());
+        }
+    }
+    
+    // 搜索类型
+    @GetMapping("/search")
+    public Result searchTypes(@RequestParam String keyword) {
+        try {
+            return Result.success(typeService.searchByName(keyword));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("搜索类型失败: " + e.getMessage());
+        }
+    }
+    
     // 添加或更新类型
     @PostMapping
     public Result save(@RequestBody Type type) {
@@ -56,6 +91,23 @@ public class TypeController {
         }
     }
     
+    // 更新类型状态
+    @PutMapping("/{id}/status/{status}")
+    public Result updateStatus(@PathVariable Integer id, @PathVariable Integer status) {
+        try {
+            Type type = typeService.findById(id);
+            if (type == null) {
+                return Result.error("类型不存在");
+            }
+            
+            typeService.updateStatus(id, status);
+            return Result.success();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("更新类型状态失败: " + e.getMessage());
+        }
+    }
+    
     // 删除类型
     @DeleteMapping("/{id}")
     public Result delete(@PathVariable Integer id) {
@@ -70,6 +122,18 @@ public class TypeController {
         } catch (Exception e) {
             e.printStackTrace();
             return Result.error("删除类型失败: " + e.getMessage());
+        }
+    }
+    
+    // 批量删除类型
+    @DeleteMapping("/batch")
+    public Result batchDelete(@RequestBody List<Integer> ids) {
+        try {
+            typeService.batchDelete(ids);
+            return Result.success();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("批量删除类型失败: " + e.getMessage());
         }
     }
 } 

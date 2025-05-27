@@ -1,5 +1,6 @@
 <script>
 import { login } from "@/api/user";
+import { mapActions } from "vuex";
 
 export default {
   name: "Login",
@@ -11,9 +12,18 @@ export default {
       },
       loading: false,
       errorMessage: "",
+      registrationSuccess: false,
     };
   },
+  created() {
+    // 检查是否是注册成功后跳转而来
+    if (this.$route.query.registered === "true") {
+      this.registrationSuccess = true;
+    }
+  },
   methods: {
+    ...mapActions("user", ["login"]),
+
     async handleLogin() {
       if (!this.loginForm.username || !this.loginForm.password) {
         this.errorMessage = "请输入用户名和密码";
@@ -28,27 +38,14 @@ export default {
 
       this.loading = true;
       this.errorMessage = "";
+      this.registrationSuccess = false;
 
       try {
-        console.log("登录表单数据:", loginData);
+        // 调用Vuex的login action
+        await this.login(loginData);
 
-        // 调用登录API
-        const response = await login(loginData);
-        console.log("登录响应:", response);
-
-        if (response && typeof response === "object") {
-          // 保存认证信息
-          localStorage.setItem("token", response.token);
-          localStorage.setItem("userRole", response.role);
-          localStorage.setItem("username", response.username);
-          localStorage.setItem("userId", response.userId);
-          localStorage.setItem("isLoggedIn", "true");
-
-          // 登录成功后跳转到首页
-          this.$router.push("/");
-        } else {
-          this.errorMessage = "登录失败，服务器返回格式异常";
-        }
+        // 登录成功后跳转到首页
+        this.$router.push("/");
       } catch (error) {
         console.error("登录错误:", error);
 
@@ -56,14 +53,21 @@ export default {
         if (error.response) {
           console.log("错误状态:", error.response.status);
           console.log("错误数据:", error.response.data);
-          this.errorMessage = `登录失败(${error.response.status}): ${
-            error.response.data?.message || error.message
-          }`;
+
+          if (error.response.data && typeof error.response.data === "string") {
+            this.errorMessage = error.response.data;
+          } else if (error.response.data && error.response.data.message) {
+            this.errorMessage = error.response.data.message;
+          } else {
+            this.errorMessage = `登录失败 (${error.response.status})`;
+          }
         } else if (error.request) {
           console.log("无响应错误:", error.request);
           this.errorMessage = "服务器未响应，请检查网络连接";
+        } else if (error.message) {
+          this.errorMessage = error.message;
         } else {
-          this.errorMessage = `请求错误: ${error.message}`;
+          this.errorMessage = "登录失败，请稍后重试";
         }
       } finally {
         this.loading = false;
@@ -77,6 +81,9 @@ export default {
   <div class="login-container">
     <div class="login-box">
       <h2>思政教学资源管理系统</h2>
+      <div v-if="registrationSuccess" class="success-message">
+        注册成功！请使用您的账号登录系统。
+      </div>
       <div class="form-group">
         <label for="username">用户名</label>
         <input
@@ -85,6 +92,7 @@ export default {
           v-model="loginForm.username"
           placeholder="请输入用户名"
           class="form-input"
+          @keyup.enter="handleLogin"
         />
       </div>
       <div class="form-group">
@@ -95,6 +103,7 @@ export default {
           v-model="loginForm.password"
           placeholder="请输入密码"
           class="form-input"
+          @keyup.enter="handleLogin"
         />
       </div>
       <div v-if="errorMessage" class="error-message">
@@ -103,6 +112,9 @@ export default {
       <button @click="handleLogin" class="login-button" :disabled="loading">
         {{ loading ? "登录中..." : "登录" }}
       </button>
+      <div class="register-link">
+        没有账号？<router-link to="/register">去注册</router-link>
+      </div>
       <div class="login-tips">
         <p>测试账号：</p>
         <p>管理员: admin_user / 123456</p>
@@ -188,6 +200,31 @@ label {
   color: #ff4d4f;
   margin-bottom: 1rem;
   text-align: center;
+}
+
+.success-message {
+  color: #52c41a;
+  margin-bottom: 1rem;
+  text-align: center;
+  padding: 8px;
+  background-color: #f6ffed;
+  border: 1px solid #b7eb8f;
+  border-radius: 4px;
+}
+
+.register-link {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.register-link a {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.register-link a:hover {
+  text-decoration: underline;
 }
 
 .login-tips {

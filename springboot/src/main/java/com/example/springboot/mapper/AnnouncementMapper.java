@@ -34,7 +34,7 @@ public interface AnnouncementMapper {
      * @return 公告对象
      */
     @Select("SELECT * FROM announcement WHERE id = #{id}")
-    Announcement findById(Integer id);
+    Announcement findById(@Param("id") Integer id);
     
     /**
      * 插入公告
@@ -79,5 +79,5 @@ public interface AnnouncementMapper {
      * @return 影响行数
      */
     @Delete("DELETE FROM announcement WHERE id = #{id}")
-    int delete(Integer id);
+    int delete(@Param("id") Integer id);
 } 

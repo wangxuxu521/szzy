@@ -47,4 +47,13 @@ public class CourseService {
     public void delete(Integer courseId) {
         courseMapper.delete(courseId);
     }
+
+    /**
+     * 统计教师的课程数量
+     * @param teacherId 教师ID
+     * @return 课程数量
+     */
+    public int countByTeacherId(Integer teacherId) {
+        return courseMapper.countByTeacherId(teacherId);
+    }
 } 

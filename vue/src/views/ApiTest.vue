@@ -80,6 +80,24 @@
       </div>
     </div>
 
+    <div class="test-section">
+      <h2>资源审核测试</h2>
+      <div class="button-group">
+        <el-button
+          type="info"
+          @click="testResourceReviewStatus"
+          :loading="loading.resourceReviewStatus"
+        >
+          测试资源审核状态更新
+        </el-button>
+      </div>
+
+      <div v-if="results.resourceReviewStatus" class="result-container">
+        <h3>资源审核状态更新结果：</h3>
+        <pre>{{ results.resourceReviewStatus }}</pre>
+      </div>
+    </div>
+
     <div class="error-log" v-if="errorLog.length > 0">
       <h2>错误日志</h2>
       <div v-for="(error, index) in errorLog" :key="index" class="error-item">
@@ -94,7 +112,11 @@
 import { ref, reactive } from "vue";
 import axios from "axios";
 import { getTagList, saveTag } from "@/api/tag";
-import { getResourceList, uploadResource } from "@/api/resource";
+import {
+  getResourceList,
+  uploadResource,
+  updateResourceReviewStatus,
+} from "@/api/resource";
 import { ElMessage } from "element-plus";
 
 export default {
@@ -106,6 +128,7 @@ export default {
       directRequest: false,
       getResourceList: false,
       createResource: false,
+      resourceReviewStatus: false,
     });
 
     const results = reactive({
@@ -114,6 +137,7 @@ export default {
       directRequest: null,
       resourceList: null,
       resourceCreate: null,
+      resourceReviewStatus: "",
     });
 
     const errorLog = ref([]);
@@ -227,6 +251,60 @@ export default {
       }
     };
 
+    const testResourceReviewStatus = async () => {
+      try {
+        // 先获取一个待审核的资源
+        const resources = await getResourceList();
+        const pendingResource = resources.find(
+          (r) => r.reviewStatus === "pending"
+        );
+
+        if (!pendingResource) {
+          results.resourceReviewStatus = "未找到待审核资源，无法测试审核功能";
+          return;
+        }
+
+        results.resourceReviewStatus = `准备审核资源: ID=${pendingResource.resourceId}, 标题=${pendingResource.title}\n`;
+
+        // 测试审核通过
+        const approveResult = await updateResourceReviewStatus(
+          pendingResource.resourceId,
+          "approved"
+        );
+
+        results.resourceReviewStatus += `审核通过结果: ${JSON.stringify(
+          approveResult
+        )}\n`;
+
+        // 等待1秒后测试拒绝操作
+        setTimeout(async () => {
+          const rejectResult = await updateResourceReviewStatus(
+            pendingResource.resourceId,
+            "rejected"
+          );
+
+          results.resourceReviewStatus += `审核拒绝结果: ${JSON.stringify(
+            rejectResult
+          )}\n`;
+
+          // 恢复到待审核状态
+          setTimeout(async () => {
+            const resetResult = await updateResourceReviewStatus(
+              pendingResource.resourceId,
+              "pending"
+            );
+
+            results.resourceReviewStatus += `恢复待审核状态结果: ${JSON.stringify(
+              resetResult
+            )}\n`;
+          }, 1000);
+        }, 1000);
+      } catch (error) {
+        results.resourceReviewStatus = `审核功能测试失败: ${error.message}\n`;
+        console.error("审核测试失败:", error);
+      }
+    };
+
     return {
       loading,
       results,
@@ -236,6 +314,7 @@ export default {
       testDirectRequest,
       testGetResourceList,
       testCreateResource,
+      testResourceReviewStatus,
     };
   },
 };

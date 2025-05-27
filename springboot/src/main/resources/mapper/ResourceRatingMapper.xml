@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.springboot.mapper.ResourceRatingMapper">
+    
+    <!-- 基础结果映射 -->
+    <resultMap id="BaseResultMap" type="ResourceRating">
+        <id column="id" property="id" />
+        <result column="resource_id" property="resourceId" />
+        <result column="user_id" property="userId" />
+        <result column="rating" property="rating" />
+        <result column="create_time" property="createTime" />
+        <result column="update_time" property="updateTime" />
+    </resultMap>
+    
+    <!-- 插入评分记录 -->
+    <insert id="insert" parameterType="ResourceRating" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO resource_rating (resource_id, user_id, rating, create_time, update_time)
+        VALUES (#{resourceId}, #{userId}, #{rating}, NOW(), NOW())
+    </insert>
+    
+    <!-- 更新评分记录 -->
+    <update id="update" parameterType="ResourceRating">
+        UPDATE resource_rating 
+        SET rating = #{rating}, update_time = NOW()
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 根据ID查询评分记录 -->
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM resource_rating WHERE id = #{id}
+    </select>
+    
+    <!-- 根据资源ID和用户ID查询评分记录 -->
+    <select id="findByResourceIdAndUserId" resultMap="BaseResultMap">
+        SELECT * FROM resource_rating 
+        WHERE resource_id = #{resourceId} AND user_id = #{userId}
+    </select>
+    
+    <!-- 根据资源ID查询所有评分记录 -->
+    <select id="findByResourceId" resultMap="BaseResultMap">
+        SELECT * FROM resource_rating 
+        WHERE resource_id = #{resourceId}
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 根据用户ID查询所有评分记录 -->
+    <select id="findByUserId" resultMap="BaseResultMap">
+        SELECT * FROM resource_rating 
+        WHERE user_id = #{userId}
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 计算资源的平均评分 -->
+    <select id="calculateAverageRating" resultType="Double">
+        SELECT AVG(rating) FROM resource_rating 
+        WHERE resource_id = #{resourceId}
+    </select>
+    
+    <!-- 统计资源的评分人数 -->
+    <select id="countRatingsByResourceId" resultType="Integer">
+        SELECT COUNT(*) FROM resource_rating 
+        WHERE resource_id = #{resourceId}
+    </select>
+    
+    <!-- 删除评分记录 -->
+    <delete id="delete">
+        DELETE FROM resource_rating WHERE id = #{id}
+    </delete>
+    
+    <!-- 根据资源ID和用户ID删除评分记录 -->
+    <delete id="deleteByResourceIdAndUserId">
+        DELETE FROM resource_rating 
+        WHERE resource_id = #{resourceId} AND user_id = #{userId}
+    </delete>
+</mapper> 

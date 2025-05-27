@@ -4,7 +4,6 @@ import com.example.springboot.common.Result;
 import com.example.springboot.entity.SystemConfig;
 import com.example.springboot.service.SystemConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -48,7 +47,6 @@ public class SystemConfigController {
     }
     
     @PostMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Result saveConfig(@RequestBody SystemConfig systemConfig) {
         if (systemConfigService.findByKey(systemConfig.getConfigKey()) != null) {
             return Result.error("配置键已存在");
@@ -63,7 +61,6 @@ public class SystemConfigController {
     }
     
     @PutMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Result updateConfig(@RequestBody SystemConfig systemConfig) {
         SystemConfig existing = systemConfigService.findByKey(systemConfig.getConfigKey());
         if (existing == null) {
@@ -79,7 +76,6 @@ public class SystemConfigController {
     }
     
     @PutMapping("/{configKey}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Result updateConfigValue(@PathVariable String configKey, @RequestBody Map<String, String> body) {
         String configValue = body.get("configValue");
         if (configValue == null) {
@@ -95,7 +91,6 @@ public class SystemConfigController {
     }
     
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Result deleteConfig(@PathVariable Integer id) {
         boolean success = systemConfigService.deleteById(id);
         if (success) {
@@ -106,7 +101,6 @@ public class SystemConfigController {
     }
     
     @DeleteMapping("/key/{configKey}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Result deleteConfigByKey(@PathVariable String configKey) {
         boolean success = systemConfigService.deleteByKey(configKey);
         if (success) {
